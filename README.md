@@ -1,4 +1,4 @@
-##Autonomous Negotiation Using Comparison-Based Gradient Estimation
+# Autonomous Negotiation Using Comparison-Based Gradient Estimation
 
 This is the repository for the numerical and human interaction experiments performed in the paper Autonomous Negotiation Using Comparison-Based Gradient Estimation.
 
