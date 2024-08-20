@@ -1,0 +1,37 @@
+Start of Trading
+User Target Items: 55 apples, 50 bananas, 55 oranges,
+GPT Utility Function Q: [[-1.,-0.,-0.],
+ [-0.,-1.,-0.],
+ [-0.,-0.,-1.]]
+GPT Utility Function u: [ 50  100 150]
+GPT's Trade Offer:
+    GPT receives: 5 apples, 5 oranges
+    User receives: 3 bananas
+User: No thanks
+
+GPT's Trade Offer:
+    GPT receives: 4 oranges
+    User receives: 4 bananas, 1 apple
+User: Nah
+
+GPT's Trade Offer:
+    GPT receives: 3 oranges
+    User receives: 3 bananas, 2 apples
+User: No
+
+GPT's Trade Offer:
+    GPT receives: 3 oranges
+    User receives: 2 bananas, 3 apples
+User: No
+
+GPT's Trade Offer:
+    GPT receives: 2 oranges
+    User receives: 4 bananas, 3 apples
+User: No
+
+GPT's Trade Offer:
+
+    GPT receives: 2 oranges
+    User receives: 5 bananas, 1 apple
+
+User: Stopped Trading

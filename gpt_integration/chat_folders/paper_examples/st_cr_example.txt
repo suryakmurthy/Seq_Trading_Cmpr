@@ -1,0 +1,158 @@
+Start of Trading
+Human Target Items: 25 apples, 50 bananas, 75 oranges, 
+ST-CR Utility Function Q: [[-1.,-0.,-0.], [-0.,-1.,-0.],[-0.,-0.,-1.]]
+ST-CR Utility Function u: [20, 74, 32]
+Initial Human Items: 50 apples, 50 bananas, 50 oranges
+Initial ST-CR Items: 50 apples, 50 bananas, 50 oranges
+
+ST-CR's Trade Offer:
+    
+    ST-CR receives: Nothing
+    User receives: 5.0 apples, 0.0 bananas, 5.0 oranges, 
+
+User: How about I give you the apples and you give me the oranges?
+
+Parsed User Counteroffer:
+	    ST-CR receives: 5.0 apples
+	    User receives: 5.0 oranges
+
+ST-CR:  Counteroffer Direction is not Beneficial. Incorporating feedback into Gradient Cone
+
+ST-CR's Trade Offer: 
+    
+    ST-CR receives: 2.0 apples, 
+    User receives: 5.0 bananas, 3.0 oranges, 
+User: I would accept this trade if you give me zero bananas
+    
+Parsed User Counteroffer:
+
+	ST-CR receives: 2.0 apples, 
+	User receives: 3.0 oranges, 0.0 bananas
+	
+ST-CR:  Counteroffer Direction is Beneficial 
+
+ST-CR's Trade Offer: 
+    
+    ST-CR receives: 2.0 apples, 
+    User receives: 0.0 bananas, 3.0 oranges, 
+User: yes
+    
+Offer Accepted! 
+New Human State: 48.0 apples, 50.0 bananas, 53.0 oranges
+New ST-CR State: 52.0 apples, 50.0 bananas, 47.0 oranges
+Estimated Human Benefit: 237.0 
+ST-CR Benefit: 31.0 
+
+ST-CR's Trade Offer: 
+    
+    ST-CR receives: 2.0 apples, 
+    User receives: 0.0 bananas, 3.0 oranges, 
+    
+User: Yes
+Offer Accepted! 
+New Human State: 46.0 apples, 50.0 bananas, 56.0 oranges
+New ST-CR State: 54.0 apples, 50.0 bananas, 44.0 oranges
+Estimated Human Benefit: 211.0 
+ST-CR Benefit: 5.0 
+
+ST-CR's Trade Offer: 
+    ST-CR receives: 1.0 oranges, 
+    User receives: 1.0 apples, 0.0 bananas, 
+User: No, I want more oranges and fewer apples
+    
+Parsed User Counteroffer:
+	    ST-CR receives: 1.0 apples, 
+	    User receives: 0.0 bananas, 1.0 oranges,
+
+ST-CR:  Counteroffer Direction is not Beneficial. Incorporating feedback into Gradient Cone
+
+ST-CR's Trade Offer: 
+
+    ST-CR receives: 1.0 apples, 
+    User receives: 5.0 bananas, 4.0 oranges, 
+User: Give me one more orange and you have a deal
+    
+Parsed User Counteroffer:
+	    ST-CR receives: 1.0 apples, 
+	    User receives: 5.0 bananas, 5.0 oranges
+ST-CR:  Counteroffer Direction is Beneficial 
+ST-CR's Trade Offer: 
+    ST-CR receives: 1.0 apples, 
+    User receives: 5.0 bananas, 5.0 oranges, 
+User: Yes
+Offer Accepted! 
+New Human State: 45.0 apples, 55.0 bananas, 61.0 oranges
+New ST-CR State: 55.0 apples, 45.0 bananas, 39.0 oranges
+Estimated Human Benefit: 181.0 
+ST-CR Benefit: 271.0 
+
+ST-CR's Trade Offer: 
+    
+    ST-CR receives: 1.0 apples, 
+    User receives: 5.0 bananas, 5.0 oranges, 
+User: yes
+
+Offer Accepted! 
+New Human State: 44.0 apples, 60.0 bananas, 66.0 oranges
+New ST-CR State: 56.0 apples, 40.0 bananas, 34.0 oranges
+Estimated Human Benefit: 79.0 
+ST-CR Benefit: 169.0 
+
+ST-CR's Trade Offer: 
+    
+    ST-CR receives: 1.0 apples, 
+    User receives: 5.0 bananas, 5.0 oranges, 
+User: Yes
+
+Offer Accepted! 
+New Human State: 43.0 apples, 65.0 bananas, 71.0 oranges
+New ST-CR State: 57.0 apples, 35.0 bananas, 29.0 oranges
+Estimated Human Benefit: -23.0 
+ST-CR Benefit: 67.0 
+
+ST-CR's Trade Offer: 
+    
+    ST-CR receives: Nothing
+    User receives: 0.0 apples, 1.0 bananas, 1.0 oranges
+User: How about I give you 5 bananas for 4 oranges?
+
+Parsed User Counteroffer:
+	    ST-CR receives: 5.0 bananas
+	    User receives: 4.0 oranges
+
+ST-CR:  Counteroffer Direction is Beneficial
+
+ST-CR's Trade Offer: 
+    
+    ST-CR receives: 5.0 bananas, 
+    User receives: 0.0 apples, 4.0 oranges
+
+User: Yes
+    
+Offer Accepted! 
+New Human State: 43.0 apples, 60.0 bananas, 75.0 oranges
+New ST-CR State: 57.0 apples, 40.0 bananas, 25.0 oranges
+Estimated Human Benefit: 141.0 
+ST-CR Benefit: 83.0 
+
+ST-CR's Trade Offer:
+    
+    ST-CR receives: 5.0 bananas, 
+    User receives: 0.0 apples, 4.0 oranges, 
+
+User: No, How about I give you 5 apples and 5 bananas?
+    
+Parsed User Counteroffer:
+	    ST-CR receives: 5.0 apples, 5.0 bananas,
+	    User receives: 0.0 oranges.
+	    
+ST-CR:  Counteroffer Direction is not Beneficial. Incorporating feedback into Gradient Cone
+
+ST-CR's Trade Offer:
+    
+    ST-CR receives: Nothing
+    User receives: 2.0 apples, 3.0 bananas, 5.0 oranges
+
+User: Stopped Trading
+    
+Trading Ended By User 

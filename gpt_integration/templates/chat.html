@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Interface</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        #chat-box {
+            width: 100%;
+            height: 300px; /* Set a fixed height for the chat box */
+            overflow-y: scroll; /* Enable vertical scrolling */
+            border: 1px solid #ccc;
+            padding: 10px;
+            box-sizing: border-box;
+            background-color: #f9f9f9;
+        }
+
+        pre {
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            white-space: pre-wrap;  /* Wrap text to fit the container */
+        }
+
+        #message-input {
+            width: 80%;
+            padding: 10px;
+            margin-top: 10px;
+        }
+
+        #send-button, #stop-button {
+            padding: 10px 15px;
+            margin-left: 5px;
+            margin-top: 10px;
+        }
+    </style>
+    <script type="text/javascript">
+        $(document).ready(function(){
+            const folderKey = "{{ folder_key }}";
+
+            function fetchOffer() {
+                $.get('/get_offer', {folder_key: folderKey}, function(response){
+                    if (response.offer) {
+                        $('#chat-box').append('<pre>' + response.offer + '</pre>');
+                        $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight); // Scroll to the bottom
+                        waitForResponse();  // After displaying the offer, wait for the response
+                    } else {
+                        setTimeout(fetchOffer, 1000);  // Retry fetching offer after 1 second if no offer is found
+                    }
+                }, 'json');
+            }
+
+            function waitForResponse() {
+                $('#message-input').prop('disabled', false);  // Enable the input for response
+                $('#send-button').prop('disabled', false);   // Enable the send button
+
+                $('#send-button').off('click').on('click', function(){
+                    console.log("Send button clicked");  // Debugging: Check if the button click is detected
+                    const message = $('#message-input').val();
+                    $.ajax({
+                        url: '/send_response',
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({response: message, folder_key: folderKey}),
+                        success: function(response) {
+                            console.log('Response received:', response);
+                            $('#chat-box').append('<div>User: ' + message + '</div>');  // Display sent message
+                            $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight); // Scroll to the bottom
+                            $('#message-input').val('');  // Clear input field
+                            $('#message-input').prop('disabled', true);   // Disable input after sending response
+                            $('#send-button').prop('disabled', true);      // Disable send button after sending response
+                            fetchOffer();  // Fetch a new offer after sending the response
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('Error:', status, error);
+                            // Handle error response
+                        }
+                    });
+                });
+
+                $('#stop-button').off('click').on('click', function(){
+                    $.ajax({
+                        url: '/send_response',
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({response: 'stop', folder_key: folderKey}),
+                        success: function(response) {
+                            window.location.href = '/trading_ended';
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('Error:', status, error);
+                            // Handle error response
+                        }
+                    });
+                });
+            }
+
+            // Start the loop by fetching the initial offer
+            fetchOffer();
+        });
+    </script>
+</head>
+<body>
+    <h1>Chat Interface</h1>
+    <div id="chat-box">
+        <!-- Messages will be dynamically added here -->
+    </div>
+    <div>
+        <input type="text" id="message-input" placeholder="Type your response..." disabled>
+        <button id="send-button" disabled>Send</button>
+        <button id="stop-button">Stop Trading</button>
+    </div>
+</body>
+</html>
