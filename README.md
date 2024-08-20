@@ -84,5 +84,5 @@ Starting Website on http://127.0.0.1:5000
 ```
 Clicking on the link will take you to a webpage which will ask you for relevant information before trading begins. We note that you will need to provide your own OpenAI API key to run these tests.
 ###Results
-The testing script stores a log of the negotiation with humans. The transcript is stored in a folder with a timestamp (Ex: `chat_folders/1723827209/log.txt`). The example logs that we show in the supplemental materials are stored in `chat_folders\paper_examples`
+The testing script stores a log of the negotiation with humans. The transcript is stored in a folder with a timestamp (Ex: `chat_folders/1723827209/log.txt`). The example logs that we show in the appendix are stored in `chat_folders\paper_examples`
 
