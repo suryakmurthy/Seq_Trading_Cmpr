@@ -6,19 +6,6 @@ import json
 import platform
 import logging
 
-"""
-    This program initializes a testing website for GPT integration. When the website starts, you will be asked to input the following arguments
-
-    Args:
-        target_items_apples (int): Total number of apples you would like to obtain
-        target_items_bananas (int): Total number of bananas you would like to obtain
-        target_items_oranges (int): Total number of oranges you would like to obtain
-        program_type (two options): Underlying program for the offering agent. (Either ST-CR or GPT)
-        api_key (string): API key for OpenAI. This is necessary to run the tests.
-    Returns:
-        log: Stores a log of the chat in a folder denoted by a timestamp.
-"""
-
 app = Flask(__name__)
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
@@ -30,7 +17,29 @@ if not os.path.exists(BASE_CHAT_FOLDER):
 
 @app.route('/')
 def start():
-    return render_template('index.html')
+    print("Starting")
+    return render_template('consent_form.html')  # Serve the consent form on the homepage
+
+@app.route('/consent', methods=['POST'])
+def handle_consent():
+    print("Checking for consent")
+    consent = request.form.get('consent')
+    prolific_id = request.form.get('prolific_id')  # Retrieve Prolific ID
+
+    if consent == 'Yes':
+        # You may want to store the Prolific ID somewhere or process it here
+        if request.method == 'POST':
+            print("Redirecting")
+            return redirect(url_for('negotiation_init'))  # Redirect to negotiation initialization
+        else:
+            print("Rendering")
+            return render_template('entry.html')
+    else:
+        return "You must agree to the consent form to proceed."
+
+@app.route('/negotiation_init')
+def negotiation_init():
+    return render_template('negotiation_init.html')
 
 @app.route('/negotiation', methods=['POST'])
 def start_negotiation():

@@ -1,0 +1,11 @@
+Start of Trading
+User Target Items: 45 apples, 50 bananas, 75 oranges, 
+ST-CR Utility Function Q: [[-1.,-0.,-0.],
+ [-0.,-1.,-0.],
+ [-0.,-0.,-1.]]
+ST-CR Utility Function u: [ 20  32 130]
+ST-CR's Trade Offer: 
+
+    ST-CR receives: Nothing
+    User receives: 0.0 apples, 5.0 bananas, 5.0 oranges, 
+    

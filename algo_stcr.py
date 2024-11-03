@@ -1307,6 +1307,8 @@ def run_trading_scenario_stcr(num_items, offering_A, offering_b, responding_A, r
 
             # Increase the cone's angle of opening to account for changes in the responding agent's gradient
             theta += (beta * np.linalg.norm(true_out_offer))
+
+            # Add this back in after the GCA testing
             if theta > np.pi:
                 theta = np.pi
             else:
