@@ -8,21 +8,21 @@ def line_search(f, x, direction, step_size=1.0, tol=1e-3):
 
     # Check the initial queries
     num_queries += 2
-    if f.query(x, x + direction * alpha_plus) < 0 and f.query(x, x + direction * alpha_minus) > 0:
+    if f.query(x, direction * alpha_plus) and f.query(x, direction * alpha_minus):
         alpha_plus = 0
 
     num_queries += 2
-    if f.query(x, x + direction * alpha_minus) < 0 and f.query(x, x + direction * alpha_plus) > 0:
+    if f.query(x, direction * alpha_minus) and f.query(x, direction * alpha_plus):
         alpha_minus = 0
 
     # Exponentially grow alpha_plus and alpha_minus and count queries
     # Account for the inital 2 queries for the following while loops
     num_queries += 2
-    while f.query(x, x + (direction * alpha_plus)) > 0:
+    while f.query(x, (direction * alpha_plus)):
         num_queries += 1
         alpha_plus = 2 * alpha_plus
 
-    while f.query(x, x + (direction * alpha_minus)) > 0:
+    while f.query(x, (direction * alpha_minus)):
         num_queries += 1
         alpha_minus = 2 * alpha_minus
 
@@ -34,13 +34,13 @@ def line_search(f, x, direction, step_size=1.0, tol=1e-3):
 
         # Count queries for these checks
         num_queries += 1
-        if f.query(x + direction * alpha, x + (direction * alpha_temp_plus)) > 0:
+        if f.query(x + direction * alpha, (direction * alpha_temp_plus)):
             alpha = alpha_temp_plus
             alpha_plus = alpha_plus
             alpha_minus = alpha
         else:
             num_queries += 1
-            if f.query(x + direction * alpha, x + (direction * alpha_temp_minus)) > 0:
+            if f.query(x + direction * alpha, (direction * alpha_temp_minus)):
                 alpha = alpha_temp_minus
                 alpha_plus = alpha
                 alpha_minus = alpha_minus
@@ -110,9 +110,9 @@ class Bargaining_Agent:
         current_value = current_state.transpose() @ self.A @ current_state + self.b @ current_state
         next_value = next_state.transpose() @ self.A @ next_state + self.b @ next_state
         if next_value - current_value > 0:
-            return 1
+            return True
         else:
-            return -1
+            return False
 
     def utility_benefit(self, current_state, offer, flag=False):
         next_state = offer + current_state
@@ -132,7 +132,7 @@ class Bargaining_Agent:
 # agents_list = [3, 4, 5, 6, 7, 8, 9, 10]
 # progression_list = []
 # offer_count = []
-#
+
 # for num_agents in agents_list:
 #     for num_categories in categories_list:
 #         agent_set = []
@@ -142,6 +142,8 @@ class Bargaining_Agent:
 #             agent = Bargaining_Agent(A, b)
 #             agent_set.append(agent)
 #         x0 = np.zeros(num_categories)
-#         x_opt, state_list = comparison_based_cd_method(num_categories, agent_set, x0=x0, num_iters=100)
+#         x_opt, num_offers, state_list, offer_list = comparison_based_cd_method(num_categories, agent_set, x0=x0, num_iters=100)
 #         progression_list.append(
 #             {"num_agents": num_agents, "num_categories": num_categories, "x_opt": x_opt, "state_list": state_list})
+
+        
