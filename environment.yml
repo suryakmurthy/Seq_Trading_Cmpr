@@ -16,7 +16,7 @@ dependencies:
   - openssl=3.0.15=h5eee18b_0
   - pip=24.2=py38h06a4308_0
   - python=3.8.20=he870216_0
-  - r=4.1.2
+  - r
   - readline=8.2=h5eee18b_0
   - setuptools=75.1.0=py38h06a4308_0
   - sqlite=3.45.3=h5eee18b_0
