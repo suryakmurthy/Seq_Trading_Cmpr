@@ -1,4 +1,5 @@
 import numpy as np
+import time
 
 
 def line_search(f, x, direction, step_size=1.0, tol=1e-3):
@@ -53,21 +54,19 @@ def line_search(f, x, direction, step_size=1.0, tol=1e-3):
 
 
 def comparison_based_cd_method(num_categories, agent_set, x0, num_iters=100):
-    """Comparison-based coordinate descent algorithm for maximization."""
+    """Comparison-based coordinate descent algorithm with random directions from the unit sphere."""
     x = np.array(x0, dtype=float)
     n = num_categories
     cumulative_queries = 0
     query_list = []
 
     state_list = [x0.copy()]
-    active_directions = set(range(n))  # Start with all coordinate directions
-
+    
     for _ in range(num_iters):
-        if not active_directions:
-            break
-        i = np.random.choice(list(active_directions))  # Pick a random coordinate
-        direction = np.zeros(n)
-        direction[i] = 1  # Move in coordinate direction
+        # Sample a random direction from the unit sphere
+        direction = np.random.randn(n)
+        direction /= np.linalg.norm(direction)  # Normalize to get a unit vector
+
         steps = []
 
         # Perform the line search for each agent
@@ -75,17 +74,14 @@ def comparison_based_cd_method(num_categories, agent_set, x0, num_iters=100):
             step, num_queries = line_search(agent, x, direction)
             cumulative_queries += num_queries
             steps.append(step)  # Store the step for the current agent
-
+        # print("agent set: ", len(agent_set), x, [agent.b for agent in agent_set], direction, steps)
+        # time.sleep(10)
         if all(step > 0 for step in steps) or all(step < 0 for step in steps):
             # If all agents suggest the same direction, take the smallest step
             min_step = min(steps, key=abs)  # Find the smallest step in magnitude
             x += min_step * direction
             query_list.append(cumulative_queries)
             state_list.append(x.copy())  # Save the new state
-        else:
-            # Conflict detected: different objectives want opposite steps
-            # Remove this direction from future consideration
-            active_directions.remove(i)  # Permanently remove this direction
 
     return x, cumulative_queries, state_list, query_list
 
