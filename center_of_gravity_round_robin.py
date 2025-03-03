@@ -41,7 +41,7 @@ estimate_centroid_volesti <- function(halfspaces, num_samples = 10000) {
     H_polytope <- Hpolytope(A = A_matrix, b = b_vector)
     
     # Sample points uniformly inside the polytope
-    samples <- sample_points(H_polytope, num_samples)
+    samples <- sample_points(H_polytope, num_samples, random_walk = list('seed'=42))
     
     # Compute the centroid as the mean of the sampled points
     centroid <- rowMeans(samples)
@@ -68,7 +68,7 @@ estimate_volume_volesti <- function(halfspaces) {
   H_polytope <- Hpolytope(A = A_matrix, b = b_vector)
   
   # Compute the volume of the polytope
-  vol <- volume(H_polytope)
+  vol <- volume(H_polytope, settings = list('seed'=42))
   return(vol)
 }
 ''')
@@ -726,57 +726,57 @@ def generate_gradient_with_angle_linear(base_gradient, angle):
     )
     return new_gradient * np.linalg.norm(base_gradient)  # Maintain the same magnitude as the base gradient
 
-# Stress testing setup
-np.random.seed(10)
-random.seed(10)
-ro.r('set.seed(42)')
+# # Stress testing setup
+# np.random.seed(10)
+# random.seed(10)
+# ro.r('set.seed(42)')
 
-linear_case = False
-if linear_case:
-    num_categories = 3
-    current_state = np.array([0.0, 0.0, 0.0])
+# linear_case = False
+# if linear_case:
+#     num_categories = 3
+#     current_state = np.array([0.0, 0.0, 0.0])
 
-    # Base linear gradient
-    b_base = np.array([200, 200, 200])
+#     # Base linear gradient
+#     b_base = np.array([200, 200, 200])
 
-    angles = [0, 20, 40, 60, 80, 100, 120, 140, 160, 180]  # Angles from 0 to 180 degrees
+#     angles = [0, 20, 40, 60, 80, 100, 120, 140, 160, 180]  # Angles from 0 to 180 degrees
 
-    for angle in angles:
-        # Generate the second gradient with the specified angle to the first gradient
-        b_2 = generate_gradient_with_angle_linear(b_base, angle)
+#     for angle in angles:
+#         # Generate the second gradient with the specified angle to the first gradient
+#         b_2 = generate_gradient_with_angle_linear(b_base, angle)
 
-        # Initialize linear agents
-        agent_set = [Bargaining_Agent_Linear(b_base), Bargaining_Agent_Linear(b_2)]
+#         # Initialize linear agents
+#         agent_set = [Bargaining_Agent_Linear(b_base), Bargaining_Agent_Linear(b_2)]
 
-        # Run your algorithm
-        final_state, num_offers = round_robin_scenario_full(num_categories, agent_set, current_state)
+#         # Run your algorithm
+#         final_state, num_offers = round_robin_scenario_full(num_categories, agent_set, current_state)
 
-        print("Final State: ", angle, current_state, final_state, num_offers)
-else:
-    # Stress testing setup
-    num_categories_list = [7]
-    for num_categories in num_categories_list:
-        current_state = np.array([0.0 for i in range(num_categories)])
-        starting_state = current_state.copy()
-        # Base quadratic function components
-        A = -1 * np.eye(num_categories)
-        b_base = np.array([random.randint(-200, 200) for i in range(num_categories)])
+#         print("Final State: ", angle, current_state, final_state, num_offers)
+# else:
+#     # Stress testing setup
+#     num_categories_list = [7]
+#     for num_categories in num_categories_list:
+#         current_state = np.array([0.0 for i in range(num_categories)])
+#         starting_state = current_state.copy()
+#         # Base quadratic function components
+#         A = -1 * np.eye(num_categories)
+#         b_base = np.array([random.randint(-200, 200) for i in range(num_categories)])
 
-        angles = [120]  # Angles from 0 to 180 degrees
-        # angles = [20]
-        for angle in angles:
-            current_state = np.array([0.0 for i in range(num_categories)])
-            starting_state = current_state.copy()
-            # Generate the second gradient with the specified angle to the first gradient
-            b_2 = generate_gradient_with_angle(b_base, angle)
-            A_2 = -1 * np.eye(num_categories)
-            agent_set = [Bargaining_Agent(A, b_base), Bargaining_Agent(A_2, b_2)]
+#         angles = [120]  # Angles from 0 to 180 degrees
+#         # angles = [20]
+#         for angle in angles:
+#             current_state = np.array([0.0 for i in range(num_categories)])
+#             starting_state = current_state.copy()
+#             # Generate the second gradient with the specified angle to the first gradient
+#             b_2 = generate_gradient_with_angle(b_base, angle)
+#             A_2 = -1 * np.eye(num_categories)
+#             agent_set = [Bargaining_Agent(A, b_base), Bargaining_Agent(A_2, b_2)]
 
-            # Run Full Scenario
-            final_state, num_offers, state_progression, offer_progression= round_robin_scenario_full(num_categories, agent_set, current_state)
-            gradient_set = [agent.generate_gradient_vector(final_state) for agent in agent_set]
+#             # Run Full Scenario
+#             final_state, num_offers, state_progression, offer_progression= round_robin_scenario_full(num_categories, agent_set, current_state)
+#             gradient_set = [agent.generate_gradient_vector(final_state) for agent in agent_set]
 
-            print("Final State: ", angle, starting_state, final_state, num_offers, np.rad2deg(angle_between(gradient_set[0], gradient_set[1])))
+#             print("Final State: ", angle, starting_state, final_state, num_offers, np.rad2deg(angle_between(gradient_set[0], gradient_set[1])))
     
         
 
