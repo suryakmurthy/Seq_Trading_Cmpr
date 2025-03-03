@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull
 import time
 from mpl_toolkits.mplot3d import Axes3D
+import rpy2
 import rpy2.robjects as ro
 from rpy2.robjects.packages import importr
 from rpy2.robjects import numpy2ri
@@ -35,15 +36,21 @@ estimate_centroid_volesti <- function(halfspaces, num_samples = 10000) {
     b_vector[i] <- halfspaces[[i]]$rhs
   }
   
-  # Create the H-polytope using volesti
-  H_polytope <- Hpolytope(A = A_matrix, b = b_vector)
-  
-  # Sample points uniformly inside the polytope
-  samples <- sample_points(H_polytope, num_samples)
-  
-  # Compute the centroid as the mean of the sampled points
-  centroid <- rowMeans(samples)
-  return(centroid)
+  # Try to create the H-polytope
+  tryCatch({
+    H_polytope <- Hpolytope(A = A_matrix, b = b_vector)
+    
+    # Sample points uniformly inside the polytope
+    samples <- sample_points(H_polytope, num_samples)
+    
+    # Compute the centroid as the mean of the sampled points
+    centroid <- rowMeans(samples)
+    return(centroid)
+  }, error = function(e) {
+    print("The polytope is infeasible. Here are the halfspaces:")
+    print(data.frame(A_matrix, b_vector))
+    return(NULL)
+  })
 }
 
 # Function to estimate the volume of a polytope using volesti
@@ -377,7 +384,13 @@ class Mediator:
         
         # Call the R function and get the centroid
         centroid_r = ro.r['estimate_centroid_volesti'](halfspaces_r, num_samples)
-        
+
+        if centroid_r is rpy2.rinterface.NULL:  # Check if R returned NULL
+            print(f"Polytope is infeasible for agent {agent_idx}.")
+            print("Halfspaces:")
+            for h in halfspaces:
+                print(f"Coefficients: {h[0]}, RHS: {h[1]}")
+            return []
         # Convert the centroid from R to a NumPy array and return
         return list(centroid_r)
 
@@ -387,12 +400,13 @@ class Mediator:
         halfspaces  = self.polytope_information[agent_idx]["halfspaces"]
 
         centroid = self.estimate_centroid(agent_idx)
+        if len(centroid) == 0:
+            return []
+        
         vertices = self.determine_vertices(agent_idx)
         if len(vertices) <= 2:
             return []
-        # print("Checking: ", centroid, vertices)
         # Compute pairwise distances between vertices
-        # print("Error Check", vertices)
         distance_matrix = squareform(pdist(vertices))
         
         # Find the indices of the two farthest vertices
@@ -404,7 +418,6 @@ class Mediator:
         # Compute the direction vector (connecting the two farthest vertices)
         direction_vector = v2 - v1
 
-        # print("Checking Farthest Vectors: ", vertices, v2, v1, direction_vector)
 
         # Normalize the direction vector to get the normal to the plane
         a_vec = direction_vector / np.linalg.norm(direction_vector)
@@ -462,12 +475,16 @@ class Mediator:
         centroids = []
         for agent_idx in range(self.num_agents):
             centroid = np.array(self.estimate_centroid(agent_idx))
+            if len(centroid) == 0:
+                return []
             center_of_cone = self.cone_information[agent_idx]["center_of_cone"]
             basis_set = self.polytope_information[agent_idx]["basis_set"]
             rotation_direction_n = centroid @ basis_set
             centroid_vector = rotate_vector(center_of_cone, rotation_direction_n, np.arctan(np.linalg.norm(centroid)))
             centroids.append(centroid_vector)
+        
         centroids = np.array(centroids)
+        print("Centroids: ", centroids)
         n = centroids.shape[1]  # Dimension of space
 
         # Objective function: We just need a feasibility problem, so we use a dummy function
@@ -486,7 +503,7 @@ class Mediator:
         x0 /= np.linalg.norm(x0)
 
         # Solve optimization
-        result = minimize(objective, x0, method='SLSQP', constraints=constraints, options={'disp': False})
+        result = minimize(objective, x0, method='SLSQP', constraints=constraints, options={'disp': False, 'seed': 42})
 
         if result.success:
             return result.x
@@ -531,7 +548,7 @@ class Mediator:
 
         # Define and solve the feasibility problem
         prob = cp.Problem(cp.Maximize(0), constraints)
-        result = prob.solve(solver=cp.GUROBI)
+        result = prob.solve(solver=cp.GUROBI, seed=42)
 
         if prob.status == cp.OPTIMAL:
             return x.value
@@ -574,7 +591,6 @@ def round_robin_iteration(num_categories, agent_set, current_state, step_size=1)
     trade_found = False
     num_offers = 0
     max_offers = 40
-    intersection_offer = 0
     while not trade_found and num_offers < max_offers:
         # print("Iteration: ", num_offers, max_offers)
         for agent_idx in range(len(agent_set)):
@@ -605,12 +621,7 @@ def round_robin_iteration(num_categories, agent_set, current_state, step_size=1)
             else:
                 uncertainty_reduction[agent_idx].append(0)
             true_gradient = agent.generate_gradient_vector(current_state)
-            # print("Checking if gradient is contained in cone: ", true_gradient, len(offer_list[agent_idx]), is_in_cone(offer_list[agent_idx], true_gradient))
-            # time.sleep(3)
-            # if angle_between(new_cone_center, true_gradient) > new_theta:
-            #     print("Offers: ", offers, responses, responses_neg, agent.generate_directional_magnitude(current_state, offers[0]), agent.generate_directional_magnitude(current_state, offers[1]))
-            #     print("Failure: ", new_cone_center, new_theta, angle_between(new_cone_center, true_gradient))
-            #     time.sleep(1000)
+
 
         intersection_offer = []
         # TODO Add Nash Update here instead of feasibility
@@ -648,6 +659,7 @@ def round_robin_scenario_full(num_categories, agent_set, starting_state, step_si
         # print("Offer: ", intersection_offer, current_state)
         if len(intersection_offer) == 0 or total_offers >= offer_limit:
             end_flag = True
+            offer_progression.append(total_offers)
         else:
             current_state += intersection_offer
             total_offers += num_offers
@@ -714,79 +726,57 @@ def generate_gradient_with_angle_linear(base_gradient, angle):
     )
     return new_gradient * np.linalg.norm(base_gradient)  # Maintain the same magnitude as the base gradient
 
-# # Stress testing setup
-# np.random.seed(10)
-# linear_case = False
-# if linear_case:
-#     num_categories = 3
-#     current_state = np.array([0.0, 0.0, 0.0])
+# Stress testing setup
+np.random.seed(10)
+random.seed(10)
+ro.r('set.seed(42)')
 
-#     # Base linear gradient
-#     b_base = np.array([200, 200, 200])
+linear_case = False
+if linear_case:
+    num_categories = 3
+    current_state = np.array([0.0, 0.0, 0.0])
 
-#     angles = [0, 20, 40, 60, 80, 100, 120, 140, 160, 180]  # Angles from 0 to 180 degrees
+    # Base linear gradient
+    b_base = np.array([200, 200, 200])
 
-#     for angle in angles:
-#         # Generate the second gradient with the specified angle to the first gradient
-#         b_2 = generate_gradient_with_angle_linear(b_base, angle)
+    angles = [0, 20, 40, 60, 80, 100, 120, 140, 160, 180]  # Angles from 0 to 180 degrees
 
-#         # Initialize linear agents
-#         agent_set = [Bargaining_Agent_Linear(b_base), Bargaining_Agent_Linear(b_2)]
+    for angle in angles:
+        # Generate the second gradient with the specified angle to the first gradient
+        b_2 = generate_gradient_with_angle_linear(b_base, angle)
 
-#         # Run your algorithm
-#         final_state, num_offers = round_robin_scenario_full(num_categories, agent_set, current_state)
+        # Initialize linear agents
+        agent_set = [Bargaining_Agent_Linear(b_base), Bargaining_Agent_Linear(b_2)]
 
-#         print("Final State: ", angle, current_state, final_state, num_offers)
-# else:
-#     # Stress testing setup
-#     np.random.seed(10)
-#     num_categories_list = [3, 5, 7, 9]
-#     for num_categories in num_categories_list:
-#         current_state = np.array([0.0 for i in range(num_categories)])
-#         starting_state = current_state.copy()
-#         # Base quadratic function components
-#         A = -1 * np.eye(num_categories)
-#         b_base = np.array([random.randint(-200, 200) for i in range(num_categories)])
+        # Run your algorithm
+        final_state, num_offers = round_robin_scenario_full(num_categories, agent_set, current_state)
 
-#         angles = [20]  # Angles from 0 to 180 degrees
-#         # angles = [20]
-#         for angle in angles:
-#             current_state = np.array([0.0 for i in range(num_categories)])
-#             starting_state = current_state.copy()
-#             # Generate the second gradient with the specified angle to the first gradient
-#             b_2 = generate_gradient_with_angle(b_base, angle)
-#             A_2 = -1 * np.eye(num_categories)
-#             agent_set = [Bargaining_Agent(A, b_base), Bargaining_Agent(A_2, b_2)]
+        print("Final State: ", angle, current_state, final_state, num_offers)
+else:
+    # Stress testing setup
+    num_categories_list = [7]
+    for num_categories in num_categories_list:
+        current_state = np.array([0.0 for i in range(num_categories)])
+        starting_state = current_state.copy()
+        # Base quadratic function components
+        A = -1 * np.eye(num_categories)
+        b_base = np.array([random.randint(-200, 200) for i in range(num_categories)])
 
-#             # Run Full Scenario
-#             final_state, num_offers = round_robin_scenario_full(num_categories, agent_set, current_state)
-#             print("Final State: ", angle, starting_state, final_state, num_offers)
-#             # x_values = range(len(volume_reduction[0]))
-#             # plt.figure(figsize=(8,5))
-#             # plt.plot(x_values, volume_reduction[0], label = "Agent 1", marker="o")
-#             # plt.plot(x_values, volume_reduction[1], label = "Agent 2", marker="s")
+        angles = [120]  # Angles from 0 to 180 degrees
+        # angles = [20]
+        for angle in angles:
+            current_state = np.array([0.0 for i in range(num_categories)])
+            starting_state = current_state.copy()
+            # Generate the second gradient with the specified angle to the first gradient
+            b_2 = generate_gradient_with_angle(b_base, angle)
+            A_2 = -1 * np.eye(num_categories)
+            agent_set = [Bargaining_Agent(A, b_base), Bargaining_Agent(A_2, b_2)]
 
-#             # plt.xlabel("Iteration")
-#             # plt.ylabel("Polytope Volume")
-#             # plt.yscale("log")
-#             # plt.title(f"Volume Reduction Curve ({num_categories} Categories)")
-#             # plt.legend()
-#             # plt.grid(True)
-#             # plt.savefig(f"Volume Reduction {num_categories}")
-#             # plt.show()
+            # Run Full Scenario
+            final_state, num_offers, state_progression, offer_progression= round_robin_scenario_full(num_categories, agent_set, current_state)
+            gradient_set = [agent.generate_gradient_vector(final_state) for agent in agent_set]
 
-#             # plt.figure(figsize=(8,5))
-#             # plt.plot(x_values, uncertainty_reduction[0], label = "Agent 1", marker="o")
-#             # plt.plot(x_values, uncertainty_reduction[1], label = "Agent 2", marker="s")
-
-#             # plt.xlabel("Iteration")
-#             # plt.ylabel("Distance Between Farthest Vertices")
-#             # plt.yscale("log")
-#             # plt.title(f"Uncertainty Reduction Curve ({num_categories} Categories)")
-#             # plt.legend()
-#             # plt.grid(True)
-#             # plt.savefig(f"Uncertainty Reduction{num_categories}")
-#             # plt.show()
+            print("Final State: ", angle, starting_state, final_state, num_offers, np.rad2deg(angle_between(gradient_set[0], gradient_set[1])))
     
         
 
