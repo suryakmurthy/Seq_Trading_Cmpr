@@ -82,7 +82,6 @@ def run_gradient_descent(x0, Sigma, lambda_mu, steps=50, step_size=0.1, verbose=
 
 def run_nash_bargaining(x0, Sigma_set, lambda_mu_set, x_i_set, steps=1000, step_size=0.1, verbose=True):
     x = x0.copy()
-    print("Check at start: ", len(x0))
     for i in range(steps + 1):
         grad_set = []
         grad_sum = 0
@@ -106,7 +105,6 @@ def run_nash_bargaining(x0, Sigma_set, lambda_mu_set, x_i_set, steps=1000, step_
 
 def run_our_solution_concept_comparisons(x0, Sigma_set, lambda_mu_set, x_i_set, steps=1000, step_size=0.1, verbose=True):
     x = x0.clone()
-    print("Check at start: ", len(x0))
     for i in range(steps):
         grad_set = []
         grad_sum = 0
@@ -208,10 +206,9 @@ def setup_markowitz_environment(tickers, start_date, end_date, lambda_ret=0.5):
     returns = prices.pct_change().dropna()
 
     # Compute expected return vector and covariance matrix
-    mu = np.ones(n) # returns.mean().values       # shape (n,)
-    Sigma = np.eye(n) # returns.cov().values     # shape (n, n)
+    mu = returns.mean().values       # shape (n,)
+    Sigma = returns.cov().values     # shape (n, n)
     r = np.ones(n)
-    print(mu)
     # Scale expected return vector
     lambda_mu = lambda_ret * mu
 
@@ -308,7 +305,6 @@ if __name__ == "__main__":
 
     x_copy = x_start.clone()
     while not po_flag and step_size > 1e-6:
-        print("Starting Iteration: ", x_start, new_softmax_transform(x_start), step_size)
         #  tensor([0.0034, 0.0013, 0.0023, 0.0023], grad_fn=<DivBackward0>) tensor([0.2007, 0.2003, 0.2005, 0.2005, 0.1981],
         our_solution_comp = run_our_solution_concept_comparisons(x_start, Sigma_set, lambda_mu_set, solution_set, step_size=step_size)
         po_flag = is_pareto_optimal_via_perturbation(our_solution_comp, Sigma_set, lambda_mu_set)
@@ -322,7 +318,6 @@ if __name__ == "__main__":
     step_size = 0.01
     po_flag = False
     while not po_flag and step_size > 1e-6:
-        print("Starting Iteration: ", x_start, new_softmax_transform(x_start), step_size)
         our_solution_no_comp = run_our_solution_concept_actual(x_start, Sigma_set, lambda_mu_set, solution_set, step_size=step_size)
         po_flag = is_pareto_optimal_via_perturbation(our_solution_no_comp, Sigma_set, lambda_mu_set)
         if not po_flag:
