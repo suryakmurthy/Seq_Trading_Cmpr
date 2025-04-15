@@ -198,7 +198,7 @@ def run_our_solution_concept_comparisons(x0, Sigma_set, lambda_mu_set, x_i_set, 
         norm_sum = 0
         for j in range(len(lambda_mu_set)):
             stamp_1 = time.time()
-            grad = estimate_gradient_f_i_comparisons(x, Sigma_set[j], lambda_mu_set[j], theta_threshold=1e-3)
+            grad = estimate_gradient_f_i_comparisons(x, Sigma_set[j], lambda_mu_set[j], theta_threshold=0.1)
             stamp_2 = time.time()
             print("Checking time per gradient estimation: ", stamp_2 - stamp_1)
             x_opt = x_i_set[j]
