@@ -199,7 +199,7 @@ def run_our_solution_concept_actual(x0, Sigma_set, lambda_mu_set, x_i_set, steps
 
     return x
 
-def run_our_solution_concept_comparisons(x0, Sigma_set, lambda_mu_set, x_i_set, steps=100, step_size=0.1):
+def run_our_solution_concept_comparisons(x0, Sigma_set, lambda_mu_set, x_i_set, steps=1000, step_size=0.01):
     """
     Run iterative update using comparison-based gradient estimation.
     """
@@ -219,7 +219,7 @@ def run_our_solution_concept_comparisons(x0, Sigma_set, lambda_mu_set, x_i_set, 
         x = x_new.detach().clone().requires_grad_(True)
     return x, total_queries
 
-def run_our_solution_concept_comparisons_parallel(x0, Sigma_set, lambda_mu_set, x_i_set, steps=100, step_size=0.1):
+def run_our_solution_concept_comparisons_parallel(x0, Sigma_set, lambda_mu_set, x_i_set, steps=1000, step_size=0.01):
     """
     Run iterative update using comparison-based gradient estimation.
     Parallelizes gradient estimation across agents.

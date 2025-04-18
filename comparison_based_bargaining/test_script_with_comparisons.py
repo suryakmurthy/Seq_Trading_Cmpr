@@ -43,7 +43,9 @@ def single_test_run(num_agents, n, seed_offset=0):
     final_simplex_comparison = from_subspace_to_simplex(final_point_comparisons)
     nbs_simplex = nbs_point
     distance = torch.norm(final_simplex - nbs_simplex).item()
-    return final_simplex.tolist(), nbs_simplex.tolist(), final_simplex_comparison.tolist(), nbs_point_zeroth_order.tolist(),query_count_ours, query_count_nbs, distance
+    distance_between_comparison_solutions = torch.norm(final_simplex - final_simplex_comparison)
+    distance_between_nash_solutions = torch.norm(nbs_point - nbs_point_zeroth_order)
+    return final_simplex.tolist(), nbs_simplex.tolist(), final_simplex_comparison.tolist(), nbs_point_zeroth_order.tolist(),query_count_ours, query_count_nbs, distance, distance_between_comparison_solutions, distance_between_nash_solutions
 
 
 if __name__ == "__main__":
@@ -63,8 +65,10 @@ if __name__ == "__main__":
                 results = [f.result() for f in concurrent.futures.as_completed(futures)]
 
             distance_dict[num_agents][n] = results
-            distances = [r[-1] for r in results]
-            print(f"Average Distance with {num_agents} Agents and {n} Stocks: {np.mean(distances):.6f}")
+            distances_between_comparisons = [r[-2] for r in results]
+            distances_between_nash = [r[-1] for r in results]
+            distances = [r[-3] for r in results]
+            print(f"Average Distance with {num_agents} Agents and {n} Stocks: {np.mean(distances):.6f}, {np.mean(distances_between_nash):.6f}, {np.mean(distances_between_comparisons):.6f}")
 
     with open('solution_concept_nash_comparisons_results.json', 'w') as f:
         json.dump(distance_dict, f)
