@@ -43,9 +43,9 @@ def single_test_run(num_agents, n, seed_offset=0):
     final_simplex_comparison = from_subspace_to_simplex(final_point_comparisons)
     nbs_simplex = nbs_point
     distance = torch.norm(final_simplex - nbs_simplex).item()
-    distance_between_comparison_solutions = torch.norm(final_simplex - final_simplex_comparison)
-    distance_between_nash_solutions = torch.norm(nbs_point - nbs_point_zeroth_order)
-    return final_simplex.tolist(), nbs_simplex.tolist(), final_simplex_comparison.tolist(), nbs_point_zeroth_order.tolist(),query_count_ours, query_count_nbs, distance, distance_between_comparison_solutions, distance_between_nash_solutions
+    distance_between_comparison_solutions = torch.norm(final_simplex - final_simplex_comparison).item()
+    distance_between_nash_solutions = torch.norm(nbs_point - nbs_point_zeroth_order).item()
+    return final_simplex.tolist(), nbs_simplex.tolist(), final_simplex_comparison.tolist(), nbs_point_zeroth_order.tolist(), query_count_ours, query_count_nbs, distance, distance_between_comparison_solutions, distance_between_nash_solutions
 
 
 if __name__ == "__main__":
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     num_agents_list = [2, 3, 5, 10, 50]
     n_list = [5, 10, 20, 50]
     distance_dict = {}
-    num_tests = 100
+    num_tests = 1
 
     for num_agents in num_agents_list:
         distance_dict[num_agents] = {}
