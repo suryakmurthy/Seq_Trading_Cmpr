@@ -5,7 +5,7 @@ import numpy as np
 import concurrent.futures
 from helper_functions import sample_from_simplex, sample_random_ranges_and_lambdas, setup_markowitz_environment_cached
 from helper_functions import from_simplex_to_subspace, from_subspace_to_simplex
-from solution_concepts import solve_markowitz_subspace_barrier, run_our_solution_concept_actual, solve_nbs_first_order_subspace
+from solution_concepts import solve_markowitz_subspace_barrier, run_our_solution_concept_actual, run_our_solution_concept_comparisons, solve_nbs_first_order_subspace, solve_nbs_zeroth_order, run_our_solution_concept_comparisons_parallel
 
 def single_test_run(num_agents, n, seed_offset=0):
     seed = 42 + seed_offset
@@ -34,22 +34,25 @@ def single_test_run(num_agents, n, seed_offset=0):
     starting_state_x = torch.tensor(sample_from_simplex(n), dtype=torch.float64)
     starting_state_projected = from_simplex_to_subspace(starting_state_x)
 
+    final_point_comparisons, query_count_ours = run_our_solution_concept_comparisons_parallel(starting_state_projected, Sigma_set, lambda_mu_set, solution_set)
     final_point = run_our_solution_concept_actual(starting_state_projected, Sigma_set, lambda_mu_set, solution_set)
     nbs_point = solve_nbs_first_order_subspace(Sigma_set, lambda_mu_set, starting_point=starting_state_projected)
+    nbs_point_zeroth_order, query_count_nbs = solve_nbs_zeroth_order(Sigma_set, lambda_mu_set, starting_point=starting_state_projected)
 
     final_simplex = from_subspace_to_simplex(final_point)
+    final_simplex_comparison = from_subspace_to_simplex(final_point_comparisons)
     nbs_simplex = nbs_point
     distance = torch.norm(final_simplex - nbs_simplex).item()
-    return final_simplex.tolist(), nbs_simplex.tolist(), distance
+    return final_simplex.tolist(), nbs_simplex.tolist(), final_simplex_comparison.tolist(), nbs_point_zeroth_order.tolist(),query_count_ours, query_count_nbs, distance
 
 
 if __name__ == "__main__":
     seed = 42
     torch.set_default_dtype(torch.float64)
-    num_agents_list = [2, 3, 5, 10, 50]
-    n_list = [5, 10, 20, 50]
+    num_agents_list = [2]
+    n_list = [3]
     distance_dict = {}
-    num_tests = 1000
+    num_tests = 10
 
     for num_agents in num_agents_list:
         distance_dict[num_agents] = {}
@@ -60,8 +63,8 @@ if __name__ == "__main__":
                 results = [f.result() for f in concurrent.futures.as_completed(futures)]
 
             distance_dict[num_agents][n] = results
-            distances = [r[2] for r in results]
+            distances = [r[-1] for r in results]
             print(f"Average Distance with {num_agents} Agents and {n} Stocks: {np.mean(distances):.6f}")
 
-    with open('solution_concept_nash_results.json', 'w') as f:
+    with open('solution_concept_nash_comparisons_results.json', 'w') as f:
         json.dump(distance_dict, f)

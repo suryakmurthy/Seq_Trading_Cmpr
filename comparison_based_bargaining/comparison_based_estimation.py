@@ -57,6 +57,7 @@ def estimate_gradient_f_i_comparisons(x, Sigma, lambda_mu, theta_threshold=0.001
     num_dim = x.shape[0]
     cone_center = torch.zeros(num_dim)
     true_gradient = compute_subspace_gradient(x, Sigma, lambda_mu)
+    query_count = 0
     step_size_init = 0.001
 
     for index in range(num_dim):
@@ -69,6 +70,7 @@ def estimate_gradient_f_i_comparisons(x, Sigma, lambda_mu, theta_threshold=0.001
             init_offer[index] = step_size_init
             response = query(Sigma, lambda_mu, x, init_offer)
             neg_response = query(Sigma, lambda_mu, x, -1 * init_offer)
+            query_count += 2
         cone_center[index] = 1.0 if response else -1.0
 
     cone_center = cone_center / torch.norm(cone_center)
@@ -80,13 +82,15 @@ def estimate_gradient_f_i_comparisons(x, Sigma, lambda_mu, theta_threshold=0.001
         for offer in offers:
             response = query(Sigma, lambda_mu, x, offer)
             neg_response = query(Sigma, lambda_mu, x, -1 * offer)
+            query_count += 2
             scale_down = 1e-1
             while response == neg_response and scale_down > 1e-5:
                 scaled_offer = scale_down * offer
                 response = query(Sigma, lambda_mu, x, scaled_offer)
                 neg_response = query(Sigma, lambda_mu, x, -1 * scaled_offer)
+                query_count += 2
                 scale_down *= 0.1
             responses.append(response)
         cone_center, theta = refine_cone(cone_center, theta, offers, responses)
 
-    return cone_center
+    return cone_center, query_count
