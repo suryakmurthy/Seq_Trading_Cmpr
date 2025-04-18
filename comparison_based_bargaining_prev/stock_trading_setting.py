@@ -2,8 +2,11 @@ import yfinance as yf
 import numpy as np
 import pandas as pd
 import cvxpy as cp
-from cone_refinement_functions import estimate_gradient_f_i_comparisons, true_markowitz_gradient, true_markowitz_gradient_w, angle_between
-# from sign_opt import estimate_gradient_sign_opt
+from joblib import Parallel, delayed
+import multiprocessing
+# from cone_refinement_speed_up import estimate_gradient_f_i_comparisons, angle_between
+from cone_refinement_functions import estimate_gradient_f_i_comparisons, true_markowitz_gradient, true_markowitz_gradient_w
+from sign_opt import gradient_estimation_sign_opt
 import random
 from scipy.optimize import minimize
 import numpy as np
@@ -118,7 +121,6 @@ def estimate_gradient_fd_wspace(w, utility_fn, epsilon=1e-5):
 
     return torch.tensor(grad_np, dtype=torch.float32)
 
-
 def sample_from_simplex(n):
     """Sample a point uniformly at random from the n-dimensional simplex."""
     return np.random.dirichlet(np.ones(n))
@@ -152,7 +154,6 @@ def is_pareto_optimal_via_perturbation(x, Sigma_set, lambda_mu_set, epsilon=1e-2
             return False
 
     return True  # No improving direction found ⇒ locally Pareto-optimal
-
 
 def softmax(x):
     e = torch.exp(x - torch.max(x))  # Subtract max for numerical stability
@@ -189,6 +190,35 @@ def run_gradient_descent(x0, Sigma, lambda_mu, steps=50, step_size=0.1, verbose=
             print(f"Step {i:3d}: Objective = {obj:.6f}, Norm(grad) = {np.linalg.norm(grad):.4f}")
     return softmax(x)
 
+def run_our_solution_concept_comparisons_parallel(x0, Sigma_set, lambda_mu_set, x_i_set, steps=1000, step_size=0.1, verbose=True, num_jobs=None):
+    if num_jobs is None:
+        num_jobs = min(multiprocessing.cpu_count(), len(lambda_mu_set))
+    print("Number of Jobs: ", num_jobs)
+    x = x0.clone()
+
+    for i in range(steps):
+        # Run cone refinements in parallel
+        results = Parallel(n_jobs=num_jobs)(
+            delayed(estimate_gradient_f_i_comparisons)(x, Sigma_set[j], lambda_mu_set[j], theta_threshold=0.001)
+            for j in range(len(lambda_mu_set))
+        )
+
+        grad_sum = 0
+        norm_sum = 0
+        for j, grad in enumerate(results):
+            grad_unit = grad / torch.norm(grad)
+            grad_sum += grad_unit * torch.norm(x - x_i_set[j])
+            norm_sum += torch.norm(x - x_i_set[j])
+
+        x_new = x - step_size * (grad_sum / norm_sum)
+
+        if verbose and i % 10 == 0:
+            print(f"Step {i:3d}: X change = {torch.norm(x_new - x)}")
+
+        x = x_new.detach().clone().requires_grad_(True)
+
+    return x
+
 def run_our_solution_concept_comparisons(x0, Sigma_set, lambda_mu_set, x_i_set, steps=1000, step_size=0.1, verbose=True):
     x = x0.clone()
     for i in range(steps):
@@ -198,9 +228,9 @@ def run_our_solution_concept_comparisons(x0, Sigma_set, lambda_mu_set, x_i_set, 
         norm_sum = 0
         for j in range(len(lambda_mu_set)):
             stamp_1 = time.time()
-            grad = estimate_gradient_f_i_comparisons(x, Sigma_set[j], lambda_mu_set[j], theta_threshold=0.1)
+            grad = estimate_gradient_f_i_comparisons(x, Sigma_set[j], lambda_mu_set[j], theta_threshold=0.001)
             stamp_2 = time.time()
-            print("Checking time per gradient estimation: ", stamp_2 - stamp_1)
+            # print("Checking time per gradient estimation: ", stamp_2 - stamp_1)
             x_opt = x_i_set[j]
             # print("Checking Gradients Comparisons: ", grad/torch.norm(grad))
             grad_sum += (grad / torch.norm(grad)) * torch.norm(x - x_opt)
@@ -416,7 +446,7 @@ if __name__ == "__main__":
     torch.manual_seed(seed)
     with open('top_100_tickers_2023.json', 'r') as f:
         tickers = json.load(f)
-    tickers = tickers[:25]
+    tickers = tickers[:4]
     start_date = ["2018-01-01", "2022-01-01", "2018-01-01"]
     end_date = ["2023-12-31", "2023-12-31", "2022-01-01"]
     lambda_ret = 0
@@ -517,6 +547,7 @@ if __name__ == "__main__":
     nash_solution = solve_nbs_cvxpy(Sigma_set_np, lambda_mu_set_np)
     nash_solution_zeroth_order, num_queries = solve_nbs_zeroth_order_simplex(Sigma_set, lambda_mu_set)
     nash_solution_tensor = torch.tensor(nash_solution, dtype=torch.float32)
-    # print("Final Check: ", nash_solution_tensor, nash_solution_zeroth_order, new_softmax_transform(our_solution_no_comp)) #, new_softmax_transform(our_solution_comp))
+    print("Final Check: ", nash_solution_tensor, nash_solution_zeroth_order, new_softmax_transform(our_solution_no_comp)) #, new_softmax_transform(our_solution_comp))
     print("Final Check: ", torch.norm(nash_solution_tensor - nash_solution_zeroth_order), torch.norm(nash_solution_tensor - new_softmax_transform(our_solution_no_comp)), torch.norm(new_softmax_transform(our_solution_comp) - new_softmax_transform(our_solution_no_comp))) #, new_softmax_transform(our_solution_comp))
 
+# Final Check:  tensor(0.0299) tensor(0.0900, grad_fn=<LinalgVectorNormBackward0>) tensor(0.1647, grad_fn=<LinalgVectorNormBackward0>)

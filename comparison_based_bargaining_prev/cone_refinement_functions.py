@@ -2,6 +2,7 @@ import numpy as np
 import scipy
 import time
 import torch
+import random
 
 def softmax(x):
     e = torch.exp(x - torch.max(x))  # Subtract max for numerical stability
@@ -62,13 +63,15 @@ def true_markowitz_gradient(x, Sigma, lambda_mu):
     """
     if not x.is_leaf:
         x.retain_grad()
+    if x.grad is not None:
+        x.grad.zero_()  # Zero out previous gradients
     w = new_softmax_transform(x)
     quad_term = torch.dot(w, Sigma @ w)
     linear_term = torch.dot(lambda_mu, w)
     expression = quad_term - linear_term
 
     # Backward to get gradient
-    expression.backward()
+    expression.backward(retain_graph=True)
     gradient = x.grad
     return gradient
 
@@ -108,14 +111,14 @@ def generate_offers(center_of_cone, step_size_orth=0.001):
 
     return offer_directions
 
-
 def estimate_gradient_f_i_comparisons(x, Sigma, lambda_mu, theta_threshold=0.001):
     num_dim = x.shape[0]
     cone_center = torch.zeros(num_dim)
-    # true_gradient = true_markowitz_gradient(x, Sigma, lambda_mu)
+    true_gradient = true_markowitz_gradient(x, Sigma, lambda_mu)
     # print("Checking True Gradient: ", true_gradient)
     # time.sleep(100)
     step_size_init = 0.001
+    # print("Init Offers ...")
     for index in range(num_dim):
         init_offer = torch.zeros(num_dim)
         init_offer[index] = step_size_init
@@ -133,53 +136,67 @@ def estimate_gradient_f_i_comparisons(x, Sigma, lambda_mu, theta_threshold=0.001
 
     cone_center = cone_center / torch.norm(cone_center)
     theta = torch.acos(torch.tensor(1.0) / torch.sqrt(torch.tensor(float(num_dim))))
-    # if angle_between(cone_center, true_gradient) - theta > -1e-6:
-        # print("Failure Initial: ", angle_between(cone_center, true_gradient), cone_center, true_gradient, theta)
-        # time.sleep(100)
+    if angle_between(cone_center, true_gradient) - theta > -1e-6:
+        print("Failure Initial: ", angle_between(cone_center, true_gradient), cone_center, true_gradient, theta)
+        time.sleep(100)
+    # print("Cone Refinement ...: ", theta)
     while theta > theta_threshold:
-        offers = generate_offers(cone_center)
+        start_val = time.time()
+        offers = generate_offers(cone_center, step_size_orth=1e-7)
 
         responses = []
         neg_responses = []
         scale_values = []
+        bid_flg = False
         for offer in offers:
             response = query(Sigma, lambda_mu, x, offer)
             neg_response = query(Sigma, lambda_mu, x, -1 * offer)
-            scale_down = 0.001
+            scale_down = 1e-7
 
             while response == neg_response and scale_down > 1e-20:
                 scaled_offer = scale_down * offer
                 response = query(Sigma, lambda_mu, x, scaled_offer)
                 neg_response = query(Sigma, lambda_mu, x, -1 * scaled_offer)
                 scale_down *= 0.1
+            if response == neg_response:
+                bid_flg = True
             scale_values.append(scale_down)
             responses.append(response)
             neg_responses.append(neg_response)
-
-        cone_center, theta = refine_cone(cone_center, theta, offers, responses)
-        # if angle_between(cone_center, true_gradient) - theta > -1e-6:
-        #     print("Failure: ", scale_values, angle_between(cone_center, true_gradient) - theta, responses, neg_responses)
-            # time.sleep(100)
-
+        cone_center_prev = cone_center.clone()
+        cone_center_new, theta = refine_cone(cone_center, theta, offers, responses)
+        end_val = time.time()
+        print("Refined: ", theta, theta_threshold, angle_between(cone_center, true_gradient), torch.norm(cone_center_new))
+        if angle_between(cone_center_new, true_gradient) - theta > -1e-6 and not bid_flg:
+            print("Failure: ", angle_between(cone_center_prev, true_gradient), angle_between(cone_center_new, true_gradient), theta)
+            print("Gradients: ", true_gradient/torch.norm(true_gradient), cone_center_prev, cone_center_new, offers)
+            print("Responses: ", responses, neg_responses)
+            time.sleep(100)
+        cone_center = cone_center_new
+    print("End of Refinement")
     return cone_center
 
 def refine_cone(center_of_cone, theta, offers, offer_responses):
     w_list = [center_of_cone]
+    # center_of_cone_norm = center_of_cone / torch.norm(center_of_cone)
     sum_value = center_of_cone / torch.norm(center_of_cone)
 
     for i in range(len(offer_responses)):
         direction = offers[i] / torch.norm(offers[i])
         if offer_responses[i]:
+            # print("Update positive: ", direction)
             w_i = center_of_cone * torch.cos(theta) + direction * torch.sin(theta)
         else:
+            # print("Update negative: ", direction)
             w_i = center_of_cone * torch.cos(theta) - direction * torch.sin(theta)
         w_list.append(w_i)
-        sum_value += w_i / len(center_of_cone)
-
+        sum_value += w_i
+    print("W-Values: ", w_list)
     new_center = sum_value / torch.norm(sum_value)
     scaling_factor = torch.sqrt(
         torch.tensor((2 * len(center_of_cone) - 1) / (2 * len(center_of_cone)), dtype=center_of_cone.dtype))
     new_theta = torch.arcsin(scaling_factor * torch.sin(theta))
 
     return new_center, new_theta
+
 
