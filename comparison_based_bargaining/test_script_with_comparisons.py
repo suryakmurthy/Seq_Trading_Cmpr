@@ -5,7 +5,7 @@ import numpy as np
 import concurrent.futures
 from helper_functions import sample_from_simplex, sample_random_ranges_and_lambdas, setup_markowitz_environment_cached
 from helper_functions import from_simplex_to_subspace, from_subspace_to_simplex
-from solution_concepts import solve_markowitz_subspace_barrier, run_our_solution_concept_actual, run_our_solution_concept_comparisons, solve_nbs_first_order_subspace, solve_nbs_zeroth_order, run_our_solution_concept_comparisons_parallel
+from solution_concepts import solve_markowitz_subspace_barrier, run_our_solution_concept_actual, run_our_solution_concept_comparisons, solve_nbs_first_order_subspace, solve_nbs_zeroth_order, run_our_solution_concept_comparisons_parallel, run_our_solution_concept_comparisons_parallel_sign_opt
 
 def single_test_run(num_agents, n, seed_offset=0):
     seed = 42 + seed_offset
@@ -34,13 +34,14 @@ def single_test_run(num_agents, n, seed_offset=0):
     starting_state_x = torch.tensor(sample_from_simplex(n), dtype=torch.float64)
     starting_state_projected = from_simplex_to_subspace(starting_state_x)
 
-    final_point_comparisons, query_count_ours = run_our_solution_concept_comparisons_parallel(starting_state_projected, Sigma_set, lambda_mu_set, solution_set)
+    final_point_comparisons, query_count_ours = run_our_solution_concept_comparisons_parallel_sign_opt(starting_state_projected, Sigma_set, lambda_mu_set, solution_set)
     final_point = run_our_solution_concept_actual(starting_state_projected, Sigma_set, lambda_mu_set, solution_set)
     nbs_point = solve_nbs_first_order_subspace(Sigma_set, lambda_mu_set, starting_point=starting_state_projected)
     nbs_point_zeroth_order, query_count_nbs = solve_nbs_zeroth_order(Sigma_set, lambda_mu_set, starting_point=starting_state_projected)
 
     final_simplex = from_subspace_to_simplex(final_point)
     final_simplex_comparison = from_subspace_to_simplex(final_point_comparisons)
+    print("CHecking final points: ", final_simplex, final_simplex_comparison)
     nbs_simplex = nbs_point
     distance = torch.norm(final_simplex - nbs_simplex).item()
     distance_between_comparison_solutions = torch.norm(final_simplex - final_simplex_comparison).item()
@@ -51,10 +52,10 @@ def single_test_run(num_agents, n, seed_offset=0):
 if __name__ == "__main__":
     seed = 42
     torch.set_default_dtype(torch.float64)
-    num_agents_list = [2, 3, 5, 10]
-    n_list = [5, 10, 20]
+    num_agents_list = [2, 3, 5, 10, 50]
+    n_list = [5, 10, 20, 50]
     distance_dict = {}
-    num_tests = 100
+    num_tests = 1000
 
     for num_agents in num_agents_list:
         distance_dict[num_agents] = {}

@@ -1,5 +1,6 @@
 import torch
-from helper_functions import from_subspace_to_simplex, angle_between, compute_subspace_gradient
+from helper_functions import from_subspace_to_simplex, angle_between, compute_subspace_gradient, from_subspace_to_simplex_batch, from_simplex_to_subspace
+import time
 
 def query(Sigma, lambda_mu, current_state, offer, barrier_coeff=1e-6):
     """
@@ -21,6 +22,87 @@ def query(Sigma, lambda_mu, current_state, offer, barrier_coeff=1e-6):
     current_total = current_val + barrier_coeff * barrier(w_current, current_state)
     next_total = next_val + barrier_coeff * barrier(w_next, new_state)
     return next_total > current_total
+
+def barrier_batch(w_batch, v_batch):
+    Q = w_batch.shape[0]
+    device = w_batch.device
+    dtype = w_batch.dtype  # should be torch.float64
+
+    # Force penalties to be float64
+    penalties = torch.full((Q,), 1e6, dtype=dtype, device=device)
+
+    # Guard against float32 eps or float literals
+    eps = torch.tensor(1e-6, dtype=dtype, device=device)
+    one = torch.tensor(1.0, dtype=dtype, device=device)
+
+    valid_mask = (w_batch > 0).all(dim=1) & (v_batch.sum(dim=1) < 1.0)
+
+    if valid_mask.any():
+        w_valid = w_batch[valid_mask]
+        v_valid = v_batch[valid_mask]
+
+        penalty_values = -torch.sum(torch.log(w_valid + eps), dim=1) \
+                         - torch.log(one - v_valid.sum(dim=1) + eps)
+
+        # 🔒 force dtype just to be absolutely sure
+        penalty_values = penalty_values.to(dtype=dtype)
+
+        # 🔍 debug print
+        # print(f"penalties dtype: {penalties.dtype}, penalty_values dtype: {penalty_values.dtype}")
+
+        penalties[valid_mask] = penalty_values
+
+    return penalties
+
+def query_batch(Sigma, lambda_mu, current_state, offer_batch, barrier_coeff=1e-6):
+    """
+    Batched version of the comparison query function.
+
+    Args:
+        Sigma (torch.Tensor): Covariance matrix.
+        lambda_mu (torch.Tensor): Mean-return tradeoff vector.
+        current_state (torch.Tensor): Current point (1D tensor).
+        offer_batch (torch.Tensor): Batch of offers, shape [Q, d].
+        barrier_coeff (float): Coefficient for the barrier penalty.
+
+    Returns:
+        torch.BoolTensor: Comparison results for each offer, shape [Q].
+    """
+    Q, d = offer_batch.shape
+    device = offer_batch.device
+    # print("Checking current state: ", current_state.shape)
+    # Expand current_state to batch
+    # print("Checking current state: ", current_state.shape)
+    # time.sleep(100)
+    new_states = current_state.unsqueeze(0) + offer_batch  # [Q, d]
+
+    # Transform current_state (single vector) to simplex once
+    w_current = from_subspace_to_simplex(current_state)  # [d+1]
+    w_current_batch = w_current.unsqueeze(0).expand(Q, -1)  # [Q, d+1]
+
+    # Transform new_states (batch of vectors) to simplex
+    w_next_batch = from_subspace_to_simplex_batch(new_states)  # [Q, d+1]
+
+    # Objective values
+    def objective(w_batch):
+        # print("Checking Objective: ", w_batch.shape, Sigma.shape, lambda_mu.shape)
+        quad = torch.einsum('bi,ij,bj->b', w_batch, Sigma, w_batch)
+        linear = w_batch @ lambda_mu  # <--- FIXED
+        return quad - linear
+    current_val = objective(w_current_batch)
+    next_val = objective(w_next_batch)
+
+    current_barrier = barrier_batch(w_current_batch, current_state.unsqueeze(0).expand(Q, -1))
+    next_barrier = barrier_batch(w_next_batch, new_states)
+
+    barrier_coeff_tensor = torch.tensor(barrier_coeff, dtype=current_val.dtype, device=current_val.device)
+    current_total = current_val + barrier_coeff_tensor * current_barrier
+    next_total = next_val + barrier_coeff_tensor * next_barrier
+
+    # current_total = current_val + barrier_coeff * current_barrier
+    # next_total = next_val + barrier_coeff * next_barrier
+    return next_total > current_total  # [Q]
+
 
 def generate_offers(center_of_cone: torch.Tensor, step_size_orth=0.001):
     """
@@ -49,6 +131,95 @@ def refine_cone(center_of_cone, theta, offers, offer_responses):
     scaling_factor = torch.sqrt(torch.tensor((2 * len(center_of_cone) - 1) / (2 * len(center_of_cone))))
     new_theta = torch.arcsin(scaling_factor * torch.sin(theta))
     return new_center, new_theta
+
+def gradient_estimation_sign_opt(Sigma, lambda_mu, current_state, Q=50, epsilon=1e-3):
+    """
+    Estimate the gradient of the objective using Sign-OPT with overshoot correction.
+
+    Args:
+        Sigma (torch.Tensor): Covariance matrix.
+        lambda_mu (torch.Tensor): Mean-return tradeoff vector.
+        current_state (torch.Tensor): Current point in the unconstrained space.
+        Q (int): Number of random directions to sample.
+        epsilon (float): Initial perturbation size.
+
+    Returns:
+        torch.Tensor: Estimated gradient direction (normalized).
+    """
+    estimated_grad = torch.zeros_like(current_state)
+
+    for _ in range(Q):
+        u = torch.randn_like(current_state)
+        u = u / torch.norm(u)  # Normalize direction
+        epsilon_temp = epsilon
+
+        # Try to avoid ambiguous query results
+        while epsilon_temp >= 1e-20:
+            # print("Check: ", len(current_state))
+            response = query(Sigma, lambda_mu, current_state, epsilon_temp * u)
+            neg_response = query(Sigma, lambda_mu, current_state, -1.0 * epsilon_temp * u)
+
+            # Break when responses differ (meaning there's preference signal)
+            if response != neg_response:
+                break
+
+            epsilon_temp *= 0.1  # Reduce step if response is ambiguous (overshooting)
+
+        # If still ambiguous after reduction, skip this sample
+        if response == neg_response:
+            continue
+
+        sign = 1.0 if response else -1.0
+        estimated_grad += sign * u
+
+    # Avoid zero vector in rare degenerate cases
+    if torch.norm(estimated_grad) < 1e-12:
+        return torch.randn_like(current_state)  # fallback direction
+
+    return estimated_grad / torch.norm(estimated_grad)
+
+def gradient_estimation_sign_opt_batch(Sigma, lambda_mu, current_state, Q=10000, epsilon=1e-3, max_attempts=10, barrier_coeff=1e-6):
+    """
+    Estimate the gradient of the objective using Sign-OPT with batched queries and per-direction overshoot correction.
+    """
+    device = current_state.device
+    d = current_state.shape[0]
+
+    # Sample and normalize Q random directions (float64-safe)
+    directions = torch.randn(Q, d, dtype=torch.float64, device=device)
+    directions = directions / directions.norm(dim=1, keepdim=True)
+
+    epsilon_vec = torch.full((Q,), epsilon, dtype=torch.float64, device=device)
+    accepted_mask = torch.zeros(Q, dtype=torch.bool, device=device)
+    signs = torch.zeros(Q, dtype=torch.float64, device=device)
+
+    for _ in range(max_attempts):
+        pos_perturb = directions * epsilon_vec.unsqueeze(1)
+        neg_perturb = -directions * epsilon_vec.unsqueeze(1)
+
+        response_pos = query_batch(Sigma, lambda_mu, current_state, pos_perturb, barrier_coeff=barrier_coeff)
+        response_neg = query_batch(Sigma, lambda_mu, current_state, neg_perturb, barrier_coeff=barrier_coeff)
+
+        clear_mask = (response_pos != response_neg) & (~accepted_mask)
+
+        pos_one = torch.tensor(1.0, dtype=signs.dtype, device=signs.device)
+        neg_one = torch.tensor(-1.0, dtype=signs.dtype, device=signs.device)
+        signs[clear_mask] = torch.where(response_pos[clear_mask], pos_one, neg_one)
+
+        accepted_mask |= clear_mask
+        ambiguous_mask = (response_pos == response_neg) & (~accepted_mask)
+        epsilon_vec[ambiguous_mask] *= 0.1
+
+        if accepted_mask.all():
+            break
+
+    if accepted_mask.sum() == 0:
+        return torch.randn(current_state.shape, dtype=torch.float64, device=device)
+
+    weighted_dirs = directions[accepted_mask] * signs[accepted_mask].unsqueeze(1)
+    estimated_grad = weighted_dirs.sum(dim=0)
+
+    return estimated_grad / estimated_grad.norm(), Q
 
 def estimate_gradient_f_i_comparisons(x, Sigma, lambda_mu, theta_threshold=0.001):
     """
@@ -94,3 +265,42 @@ def estimate_gradient_f_i_comparisons(x, Sigma, lambda_mu, theta_threshold=0.001
         cone_center, theta = refine_cone(cone_center, theta, offers, responses)
 
     return cone_center, query_count
+
+def random_spd_matrix(n, scale=1.0):
+    A = torch.randn(n, n)
+    return scale * (A @ A.T) + torch.eye(n) * 1e-3  # Ensure positive definiteness
+
+def sample_random_simplex(n):
+    x = torch.rand(n)
+    return x / x.sum()
+
+if __name__ == "__main__":
+    torch.set_default_dtype(torch.float64)
+    torch.manual_seed(42)
+
+    d = 50  # Dimensionality of the simplex
+    num_tests = 50
+    errors = []
+
+    for i in range(num_tests):
+        Sigma = random_spd_matrix(d)
+        lambda_mu = torch.randn(d)
+        w0 = sample_random_simplex(d)
+        x0 = from_simplex_to_subspace(w0)
+
+        try:
+            grad_est = gradient_estimation_sign_opt_batch(Sigma, lambda_mu, x0)
+            grad_true = compute_subspace_gradient(x0, Sigma, lambda_mu)
+
+            angle = angle_between(grad_est, grad_true)
+            errors.append(angle.item())
+            print(f"[Test {i+1:02d}] Angle error: {angle:.2f}°")
+        except Exception as e:
+            print(f"[Test {i+1:02d}] ❌ Error: {e}")
+
+    if errors:
+        errors = torch.tensor(errors)
+        print("\n--- Gradient Estimation Accuracy Summary ---")
+        print(f"Mean angle error: {errors.mean():.2f}°")
+        print(f"Min angle error: {errors.min():.2f}°")
+        print(f"Max angle error: {errors.max():.2f}°")

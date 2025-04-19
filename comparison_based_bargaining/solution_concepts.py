@@ -2,8 +2,8 @@ import torch
 import cvxpy as cp
 import numpy as np
 from scipy.optimize import approx_fprime
-from helper_functions import from_subspace_to_simplex, from_simplex_to_subspace, compute_subspace_gradient
-from comparison_based_estimation import estimate_gradient_f_i_comparisons
+from helper_functions import from_subspace_to_simplex, from_simplex_to_subspace, compute_subspace_gradient, angle_between
+from comparison_based_estimation import estimate_gradient_f_i_comparisons, gradient_estimation_sign_opt_batch
 import concurrent.futures
 
 
@@ -227,7 +227,7 @@ def run_our_solution_concept_comparisons_parallel(x0, Sigma_set, lambda_mu_set, 
     x = x0.clone().detach().requires_grad_(True)
     total_queries = 0
 
-    for _ in range(steps):
+    for step in range(steps):
         grad_sum = torch.zeros_like(x)
         norm_sum = 0.0
 
@@ -252,5 +252,47 @@ def run_our_solution_concept_comparisons_parallel(x0, Sigma_set, lambda_mu_set, 
         if norm_sum > 0:
             x = x - step_size * (grad_sum / norm_sum)
         x = x.detach().clone().requires_grad_(True)
+        print("Updating State: ", step, x)
+
+    return x, total_queries
+
+def run_our_solution_concept_comparisons_parallel_sign_opt(x0, Sigma_set, lambda_mu_set, x_i_set, steps=1000, step_size=0.01):
+    """
+    Run iterative update using comparison-based gradient estimation.
+    Parallelizes gradient estimation across agents.
+    """
+    x = x0.clone().detach().requires_grad_(True)
+    total_queries = 0
+
+    for step in range(steps):
+        grad_sum = torch.zeros_like(x)
+        norm_sum = 0.0
+
+        def estimate_for_agent(j):
+            # print("Checking current state 1: ", x.shape)
+            true_grad = compute_subspace_gradient(x, Sigma_set[j], lambda_mu_set[j])
+            grad, query_count = gradient_estimation_sign_opt_batch(Sigma_set[j], lambda_mu_set[j], x)
+            # print("checking gradient: ", angle_between(grad, true_grad))
+            # print("Checking current state 2: ", x.shape)
+            x_opt = x_i_set[j]
+            diff_norm = torch.norm(x - x_opt)
+            grad_unit = grad / torch.norm(grad)
+            return grad_unit * diff_norm, diff_norm, query_count
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [executor.submit(estimate_for_agent, j) for j in range(len(lambda_mu_set))]
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    grad_contrib, norm_contrib, query_count = future.result()
+                    grad_sum += grad_contrib
+                    norm_sum += norm_contrib
+                    total_queries += query_count
+                except Exception as e:
+                    print(f"⚠️ Gradient estimation failed for one agent: {e}")
+
+        if norm_sum > 0:
+            x = x - step_size * (grad_sum / norm_sum)
+        x = x.detach().clone().requires_grad_(True)
+        # print("Updating State: ", step, x)
 
     return x, total_queries

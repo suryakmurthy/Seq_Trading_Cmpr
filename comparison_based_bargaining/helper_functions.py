@@ -18,6 +18,33 @@ def from_simplex_to_subspace(w: torch.Tensor) -> torch.Tensor:
     """
     return w[:-1]
 
+
+def from_subspace_to_simplex_batch(v: torch.Tensor) -> torch.Tensor:
+    """
+    Batched version of forward transform: (n-1)-dimensional -> n-dimensional simplex.
+
+    Args:
+        v (torch.Tensor): Tensor of shape [B, d-1]
+
+    Returns:
+        torch.Tensor: Tensor of shape [B, d] mapped to simplex
+    """
+    last_coord = 1.0 - v.sum(dim=1, keepdim=True)  # shape: [B, 1]
+    return torch.cat((v, last_coord), dim=1)  # shape: [B, d]
+
+
+def from_simplex_to_subspace_batch(w: torch.Tensor) -> torch.Tensor:
+    """
+    Batched version of inverse transform: n-dimensional simplex -> (n-1)-dimensional subspace.
+
+    Args:
+        w (torch.Tensor): Tensor of shape [B, d]
+
+    Returns:
+        torch.Tensor: Tensor of shape [B, d-1]
+    """
+    return w[:, :-1]
+
 def project_to_subsimplex(v):
     """
     Project v ∈ R^{n-1} into the subsimplex: v_i >= 0, sum(v) <= 1
