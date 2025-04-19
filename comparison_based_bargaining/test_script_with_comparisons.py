@@ -51,10 +51,10 @@ def single_test_run(num_agents, n, seed_offset=0):
 if __name__ == "__main__":
     seed = 42
     torch.set_default_dtype(torch.float64)
-    num_agents_list = [2, 3, 5, 10, 50]
-    n_list = [5, 10, 20, 50]
+    num_agents_list = [2, 3, 5, 10]
+    n_list = [5, 10, 20]
     distance_dict = {}
-    num_tests = 1
+    num_tests = 100
 
     for num_agents in num_agents_list:
         distance_dict[num_agents] = {}
