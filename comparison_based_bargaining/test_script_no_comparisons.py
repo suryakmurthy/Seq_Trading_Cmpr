@@ -8,15 +8,17 @@ from helper_functions import from_simplex_to_subspace, from_subspace_to_simplex
 from solution_concepts import solve_markowitz_subspace_barrier, run_our_solution_concept_actual, solve_nbs_first_order_subspace
 
 def single_test_run(num_agents, n, seed_offset=0):
-    seed = 42 + seed_offset
+    seed = 652
     torch.manual_seed(seed)
     random.seed(seed)
     np.random.seed(seed)
+    barrier_coeff = 1e-6
 
     with open('top_100_tickers_2023.json', 'r') as f:
         tickers = json.load(f)[:n]
 
     start_date_list, end_date_list, lambda_vals = sample_random_ranges_and_lambdas(num_agents)
+    start_date_list, end_date_list, lambda_vals = ['2019-09-01', '2019-04-24', '2019-11-30'], ['2020-07-23', '2020-02-16', '2020-05-01'], [0.0519, 0.0957, 0.082]
     Sigma_set = []
     lambda_mu_set = []
     print("Seed Values: ", start_date_list, end_date_list, lambda_vals, seed)
@@ -25,23 +27,24 @@ def single_test_run(num_agents, n, seed_offset=0):
             tickers, start_date_list[agent], end_date_list[agent], lambda_vals[agent])
         Sigma_set.append(torch.tensor(Sigma, dtype=torch.float64))
         lambda_mu_set.append(torch.tensor(lambda_mu, dtype=torch.float64))
+        # print(np.linalg.eig(Sigma), lambda_mu)
 
     solution_set = []
     for Sigma, lambda_mu in zip(Sigma_set, lambda_mu_set):
-        w_opt = solve_markowitz_subspace_barrier(Sigma, lambda_mu)
+        w_opt = solve_markowitz(Sigma, lambda_mu, barrier_coeff=barrier_coeff)
         x_opt = from_simplex_to_subspace(w_opt)
         solution_set.append(x_opt)
 
     starting_state_x = torch.tensor(sample_from_simplex(n), dtype=torch.float64)
     starting_state_projected = from_simplex_to_subspace(starting_state_x)
 
-    final_point = run_our_solution_concept_actual(starting_state_projected, Sigma_set, lambda_mu_set, solution_set)
-    nbs_point = solve_nbs_first_order_subspace(Sigma_set, lambda_mu_set, starting_point=starting_state_projected)
+    final_point = run_our_solution_concept_actual(starting_state_projected, Sigma_set, lambda_mu_set, solution_set, barrier_coeff=barrier_coeff)
+    nbs_point = solve_nbs_first_order_subspace(Sigma_set, lambda_mu_set, starting_point=starting_state_projected, barrier_coeff=barrier_coeff)
 
     final_simplex = from_subspace_to_simplex(final_point)
     nbs_simplex = nbs_point
     distance = torch.norm(final_simplex - nbs_simplex).item()
-    print("Double-Checking the Output Here: ", final_simplex, nbs_simplex, distance, seed)
+    print("Double-Checking the Output Here: ", final_simplex, nbs_simplex, torch.sum(final_simplex[0:n-1]), torch.sum(nbs_simplex[0:n-1]), distance, seed)
     return final_simplex.tolist(), nbs_simplex.tolist(), distance
 
 
@@ -51,7 +54,7 @@ if __name__ == "__main__":
     num_agents_list = [3]
     n_list = [5]
     distance_dict = {}
-    num_tests = 1000
+    num_tests = 1
 
     for num_agents in num_agents_list:
         distance_dict[num_agents] = {}
