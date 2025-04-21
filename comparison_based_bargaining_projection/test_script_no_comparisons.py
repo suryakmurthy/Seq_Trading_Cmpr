@@ -38,7 +38,7 @@ def single_test_run(num_agents, n, seed_offset=0):
     nbs_point = solve_nbs_first_order_simplex(Sigma_set, lambda_mu_set, starting_point=starting_state_w)
 
     distance = torch.norm(final_point - nbs_point).item()
-    if ((final_point < 0).any()) or ((nbs_point < 0).any()) or torch.abs(torch.sum(final_point) - 1) > 1e-6 or torch.abs(torch.sum(nbs_point) - 1) > 1e-6:
+    if ((final_point < 0).any()) or ((nbs_point < 0).any()) or torch.abs(torch.sum(final_point) - 1) > 1e-6 or torch.abs(torch.sum(nbs_point) - 1) > 1e-6 :
         print("ERROR CASE: ", final_point, nbs_point, torch.sum(final_point), torch.sum(nbs_point), distance, seed)
     return final_point.tolist(), nbs_point.tolist(), distance
 
@@ -46,10 +46,10 @@ def single_test_run(num_agents, n, seed_offset=0):
 if __name__ == "__main__":
     seed = 42
     torch.set_default_dtype(torch.float64)
-    num_agents_list = [2]
-    n_list = [50]
+    num_agents_list = [2, 3, 5, 10, 50]
+    n_list = [5, 10, 20, 50]
     distance_dict = {}
-    num_tests = 1
+    num_tests = 100
 
     for num_agents in num_agents_list:
         distance_dict[num_agents] = {}
