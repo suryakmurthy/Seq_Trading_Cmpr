@@ -11,25 +11,36 @@ import time
 def solve_markowitz(Sigma: torch.Tensor, lambda_mu: torch.Tensor):
     """
     Solve Markowitz optimization using convex programming with simplex constraints.
+    Returns: tensor of weights if successful, otherwise None.
     """
 
-
-    Sigma_np = Sigma.detach().cpu().numpy()
-    lambda_mu_np = lambda_mu.detach().cpu().numpy()
+    Sigma_np = Sigma.detach().cpu().numpy().astype(np.float64)
+    lambda_mu_np = lambda_mu.detach().cpu().numpy().astype(np.float64)
     n = len(lambda_mu_np)
     w = cp.Variable(n)
 
+    # Diagnostics
     eigvals = np.linalg.eigvalsh(Sigma_np)
-    print("Min eigenvalue:", np.min(eigvals))
-    print("Condition number:", np.max(eigvals) / np.min(eigvals))
+    min_eig = np.min(eigvals)
+    cond_number = np.max(eigvals) / (min_eig + 1e-12)
+    # print("Min eigenvalue:", min_eig)
+    # print("Condition number:", cond_number)
 
+    # Define optimization problem
     objective = cp.Minimize(cp.quad_form(w, Sigma_np) - lambda_mu_np @ w)
     constraints = [cp.sum(w) == 1, w >= 0]
     problem = cp.Problem(objective, constraints)
-    problem.solve()
 
-    if w.value is None:
-        raise ValueError("Optimization failed.")
+    try:
+        problem.solve(solver=cp.OSQP, verbose=False)
+    except cp.error.SolverError as e:
+        print("SolverError:", str(e))
+        return None
+
+    # Handle solver failure or infeasibility
+    if w.value is None or problem.status not in ["optimal", "optimal_inaccurate"]:
+        print(f"Solver status: {problem.status}")
+        return None
 
     return torch.tensor(w.value, dtype=Sigma.dtype)
 

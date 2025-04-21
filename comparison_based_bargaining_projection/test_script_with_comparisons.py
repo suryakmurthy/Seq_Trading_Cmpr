@@ -4,8 +4,7 @@ import json
 import numpy as np
 import concurrent.futures
 from helper_functions import sample_from_simplex, sample_random_ranges_and_lambdas, setup_markowitz_environment_cached
-from helper_functions import from_simplex_to_subspace, from_subspace_to_simplex
-from solution_concepts import solve_markowitz_subspace_barrier, run_our_solution_concept_actual, run_our_solution_concept_comparisons, solve_nbs_first_order_subspace, solve_nbs_zeroth_order, run_our_solution_concept_comparisons_parallel, run_our_solution_concept_comparisons_parallel_sign_opt
+from solution_concepts import solve_markowitz_subspace_barrier, run_our_solution_concept_actual, run_our_solution_concept_comparisons, solve_nbs_first_order_simplex, solve_nbs_zeroth_order, run_our_solution_concept_comparisons_parallel, run_our_solution_concept_comparisons_parallel_sign_opt
 
 def single_test_run(num_agents, n, seed_offset=0):
     seed = 42 + seed_offset
@@ -29,21 +28,18 @@ def single_test_run(num_agents, n, seed_offset=0):
     solution_set = []
     for Sigma, lambda_mu in zip(Sigma_set, lambda_mu_set):
         w_opt = solve_markowitz_subspace_barrier(Sigma, lambda_mu)
-        x_opt = from_simplex_to_subspace(w_opt)
-        solution_set.append(x_opt)
+        solution_set.append(w_opt)
 
-    starting_state_x = torch.tensor(sample_from_simplex(n), dtype=torch.float64)
-    starting_state_projected = from_simplex_to_subspace(starting_state_x)
+    starting_state_w = torch.tensor(sample_from_simplex(n), dtype=torch.float64)
+    final_point_comparisons, query_count_ours = run_our_solution_concept_comparisons_parallel_sign_opt(starting_state_w, Sigma_set, lambda_mu_set, solution_set)
+    final_point = run_our_solution_concept_actual(starting_state_w, Sigma_set, lambda_mu_set, solution_set)
+    nbs_point = solve_nbs_first_order_simplex(Sigma_set, lambda_mu_set, starting_point=starting_state_w)
+    nbs_point_zeroth_order, query_count_nbs = solve_nbs_zeroth_order(Sigma_set, lambda_mu_set, starting_point=starting_state_w)
 
-    final_point_comparisons, query_count_ours = run_our_solution_concept_comparisons_parallel_sign_opt(starting_state_projected, Sigma_set, lambda_mu_set, solution_set)
-    final_point = run_our_solution_concept_actual(starting_state_projected, Sigma_set, lambda_mu_set, solution_set)
-    nbs_point = solve_nbs_first_order_subspace(Sigma_set, lambda_mu_set, starting_point=starting_state_projected)
-    nbs_point_zeroth_order, query_count_nbs = solve_nbs_zeroth_order(Sigma_set, lambda_mu_set, starting_point=starting_state_projected)
+    final_simplex = final_point
+    final_simplex_comparison = final_point_comparisons
 
-    final_simplex = from_subspace_to_simplex(final_point)
-    final_simplex_comparison = from_subspace_to_simplex(final_point_comparisons)
-
-    print("CHecking final points: ", final_simplex, final_simplex_comparison, seed)
+    print("Checking final points: ", nbs_point, nbs_point_zeroth_order, seed)
     nbs_simplex = nbs_point
     distance = torch.norm(final_simplex - nbs_simplex).item()
     distance_between_comparison_solutions = torch.norm(final_simplex - final_simplex_comparison).item()

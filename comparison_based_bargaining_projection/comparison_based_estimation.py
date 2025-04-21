@@ -1,26 +1,20 @@
 import torch
-from helper_functions import from_subspace_to_simplex, angle_between, compute_simplex_gradient, from_subspace_to_simplex_batch, from_simplex_to_subspace
+from helper_functions import from_subspace_to_simplex, angle_between, compute_simplex_gradient, from_subspace_to_simplex_batch, from_simplex_to_subspace, project_gradient_to_simplex_tangent
 import time
 
-def query(Sigma, lambda_mu, current_state, offer, barrier_coeff=1e-6):
+def query(Sigma, lambda_mu, current_state, offer):
     """
     Comparison query between current state and offered perturbation, using barrier penalties.
     """
     new_state = current_state + offer
-    w_current = from_subspace_to_simplex(current_state)
-    w_next = from_subspace_to_simplex(new_state)
-
-    def barrier(w, v):
-        if torch.any(w <= 0.0) or torch.sum(v) >= 1.0:
-            return torch.tensor(1e6, dtype=w.dtype, device=w.device)
-        eps = 1e-6
-        return -torch.sum(torch.log(w + eps)) - torch.log(1.0 - torch.sum(v) + eps)
+    w_current = current_state
+    w_next = new_state
 
     current_val = torch.dot(w_current, Sigma @ w_current) - torch.dot(lambda_mu, w_current)
     next_val = torch.dot(w_next, Sigma @ w_next) - torch.dot(lambda_mu, w_next)
 
-    current_total = current_val + barrier_coeff * barrier(w_current, current_state)
-    next_total = next_val + barrier_coeff * barrier(w_next, new_state)
+    current_total = current_val
+    next_total = next_val
     return next_total > current_total
 
 def barrier_batch(w_batch, v_batch):
@@ -54,7 +48,7 @@ def barrier_batch(w_batch, v_batch):
 
     return penalties
 
-def query_batch(Sigma, lambda_mu, current_state, offer_batch, barrier_coeff=1e-6):
+def query_batch(Sigma, lambda_mu, current_state, offer_batch):
     """
     Batched version of the comparison query function.
 
@@ -63,7 +57,6 @@ def query_batch(Sigma, lambda_mu, current_state, offer_batch, barrier_coeff=1e-6
         lambda_mu (torch.Tensor): Mean-return tradeoff vector.
         current_state (torch.Tensor): Current point (1D tensor).
         offer_batch (torch.Tensor): Batch of offers, shape [Q, d].
-        barrier_coeff (float): Coefficient for the barrier penalty.
 
     Returns:
         torch.BoolTensor: Comparison results for each offer, shape [Q].
@@ -77,11 +70,10 @@ def query_batch(Sigma, lambda_mu, current_state, offer_batch, barrier_coeff=1e-6
     new_states = current_state.unsqueeze(0) + offer_batch  # [Q, d]
 
     # Transform current_state (single vector) to simplex once
-    w_current = from_subspace_to_simplex(current_state)  # [d+1]
-    w_current_batch = w_current.unsqueeze(0).expand(Q, -1)  # [Q, d+1]
+    w_current_batch = current_state.unsqueeze(0).expand(Q, -1)  # [d+1]
 
     # Transform new_states (batch of vectors) to simplex
-    w_next_batch = from_subspace_to_simplex_batch(new_states)  # [Q, d+1]
+    w_next_batch = new_states  # [Q, d+1]
 
     # Objective values
     def objective(w_batch):
@@ -92,12 +84,8 @@ def query_batch(Sigma, lambda_mu, current_state, offer_batch, barrier_coeff=1e-6
     current_val = objective(w_current_batch)
     next_val = objective(w_next_batch)
 
-    current_barrier = barrier_batch(w_current_batch, current_state.unsqueeze(0).expand(Q, -1))
-    next_barrier = barrier_batch(w_next_batch, new_states)
-
-    barrier_coeff_tensor = torch.tensor(barrier_coeff, dtype=current_val.dtype, device=current_val.device)
-    current_total = current_val + barrier_coeff_tensor * current_barrier
-    next_total = next_val + barrier_coeff_tensor * next_barrier
+    current_total = current_val
+    next_total = next_val
 
     # current_total = current_val + barrier_coeff * current_barrier
     # next_total = next_val + barrier_coeff * next_barrier
@@ -178,7 +166,7 @@ def gradient_estimation_sign_opt(Sigma, lambda_mu, current_state, Q=50, epsilon=
 
     return estimated_grad / torch.norm(estimated_grad)
 
-def gradient_estimation_sign_opt_batch(Sigma, lambda_mu, current_state, Q=10000, epsilon=1e-3, max_attempts=10, barrier_coeff=1e-6):
+def gradient_estimation_sign_opt_batch(Sigma, lambda_mu, current_state, Q=10000, epsilon=1e-3, max_attempts=10):
     """
     Estimate the gradient of the objective using Sign-OPT with batched queries and per-direction overshoot correction.
     """
@@ -187,7 +175,8 @@ def gradient_estimation_sign_opt_batch(Sigma, lambda_mu, current_state, Q=10000,
 
     # Sample and normalize Q random directions (float64-safe)
     directions = torch.randn(Q, d, dtype=torch.float64, device=device)
-    directions = directions / directions.norm(dim=1, keepdim=True)
+    directions = directions - directions.mean(dim=1, keepdim=True)  # Project to tangent space
+    directions = directions / directions.norm(dim=1, keepdim=True)  # Re-normalize
 
     epsilon_vec = torch.full((Q,), epsilon, dtype=torch.float64, device=device)
     accepted_mask = torch.zeros(Q, dtype=torch.bool, device=device)
@@ -197,8 +186,8 @@ def gradient_estimation_sign_opt_batch(Sigma, lambda_mu, current_state, Q=10000,
         pos_perturb = directions * epsilon_vec.unsqueeze(1)
         neg_perturb = -directions * epsilon_vec.unsqueeze(1)
 
-        response_pos = query_batch(Sigma, lambda_mu, current_state, pos_perturb, barrier_coeff=barrier_coeff)
-        response_neg = query_batch(Sigma, lambda_mu, current_state, neg_perturb, barrier_coeff=barrier_coeff)
+        response_pos = query_batch(Sigma, lambda_mu, current_state, pos_perturb)
+        response_neg = query_batch(Sigma, lambda_mu, current_state, neg_perturb)
 
         clear_mask = (response_pos != response_neg) & (~accepted_mask)
 
@@ -227,7 +216,6 @@ def estimate_gradient_f_i_comparisons(x, Sigma, lambda_mu, theta_threshold=0.001
     """
     num_dim = x.shape[0]
     cone_center = torch.zeros(num_dim)
-    true_gradient = compute_simplex_gradient(x, Sigma, lambda_mu)
     query_count = 0
     step_size_init = 0.001
 
@@ -274,33 +262,3 @@ def sample_random_simplex(n):
     x = torch.rand(n)
     return x / x.sum()
 
-if __name__ == "__main__":
-    torch.set_default_dtype(torch.float64)
-    torch.manual_seed(42)
-
-    d = 50  # Dimensionality of the simplex
-    num_tests = 50
-    errors = []
-
-    for i in range(num_tests):
-        Sigma = random_spd_matrix(d)
-        lambda_mu = torch.randn(d)
-        w0 = sample_random_simplex(d)
-        x0 = from_simplex_to_subspace(w0)
-
-        try:
-            grad_est = gradient_estimation_sign_opt_batch(Sigma, lambda_mu, x0)
-            grad_true = compute_simplex_gradient(x0, Sigma, lambda_mu)
-
-            angle = angle_between(grad_est, grad_true)
-            errors.append(angle.item())
-            print(f"[Test {i+1:02d}] Angle error: {angle:.2f}°")
-        except Exception as e:
-            print(f"[Test {i+1:02d}] ❌ Error: {e}")
-
-    if errors:
-        errors = torch.tensor(errors)
-        print("\n--- Gradient Estimation Accuracy Summary ---")
-        print(f"Mean angle error: {errors.mean():.2f}°")
-        print(f"Min angle error: {errors.min():.2f}°")
-        print(f"Max angle error: {errors.max():.2f}°")

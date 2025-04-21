@@ -7,49 +7,67 @@ from helper_functions import sample_from_simplex, sample_random_ranges_and_lambd
 from solution_concepts import solve_markowitz, run_our_solution_concept_actual, solve_nbs_first_order_simplex
 
 def single_test_run(num_agents, n, seed_offset=0):
-    seed = 42 +  seed_offset
-    torch.manual_seed(seed)
-    random.seed(seed)
-    np.random.seed(seed)
-    barrier_coeff = 1e-6
+    base_seed = 42 + seed_offset
 
     with open('top_100_tickers_2023.json', 'r') as f:
         tickers = json.load(f)[:n]
 
-    start_date_list, end_date_list, lambda_vals = sample_random_ranges_and_lambdas(num_agents)
-    # start_date_list, end_date_list, lambda_vals = ['2019-09-01', '2019-04-24', '2019-11-30'], ['2020-07-23', '2020-02-16', '2020-05-01'], [0.0519, 0.0957, 0.082]
-    Sigma_set = []
-    lambda_mu_set = []
-    # print("Seed Values: ", start_date_list, end_date_list, lambda_vals, seed)
-    for agent in range(num_agents):
-        Sigma, lambda_mu, _ = setup_markowitz_environment_cached(
-            tickers, start_date_list[agent], end_date_list[agent], lambda_vals[agent])
-        Sigma_set.append(torch.tensor(Sigma, dtype=torch.float64))
-        lambda_mu_set.append(torch.tensor(lambda_mu, dtype=torch.float64))
-        # print(np.linalg.eig(Sigma), lambda_mu)
-
+    success = False
+    attempt = 0
     solution_set = []
-    for Sigma, lambda_mu in zip(Sigma_set, lambda_mu_set):
-        w_opt = solve_markowitz(Sigma, lambda_mu)
-        solution_set.append(w_opt)
+    while not success:
+        # Increment seed to ensure variation across retries
+        seed = base_seed + attempt
+        torch.manual_seed(seed)
+        random.seed(seed)
+        np.random.seed(seed)
 
+        start_date_list, end_date_list, lambda_vals = sample_random_ranges_and_lambdas(num_agents)
+        Sigma_set = []
+        lambda_mu_set = []
+
+        for agent in range(num_agents):
+            Sigma, lambda_mu, _ = setup_markowitz_environment_cached(
+                tickers, start_date_list[agent], end_date_list[agent], lambda_vals[agent])
+            Sigma_set.append(torch.tensor(Sigma, dtype=torch.float64))
+            lambda_mu_set.append(torch.tensor(lambda_mu, dtype=torch.float64))
+
+        solution_set = []
+        valid = True
+        for Sigma, lambda_mu in zip(Sigma_set, lambda_mu_set):
+            w_opt = solve_markowitz(Sigma, lambda_mu)
+            if w_opt is None:
+                valid = False
+                break
+            solution_set.append(w_opt)
+
+        if valid:
+            success = True
+        else:
+            print(f"Resampling due to solver failure... (seed: {seed})")
+            attempt += 1
+
+    # Rest of your logic (now guaranteed to have valid solution_set)
+    dist_between_agent_solutions = torch.norm(solution_set[0] - solution_set[1]).item()
     starting_state_w = torch.tensor(sample_from_simplex(n), dtype=torch.float64)
     final_point = run_our_solution_concept_actual(starting_state_w, Sigma_set, lambda_mu_set, solution_set)
     nbs_point = solve_nbs_first_order_simplex(Sigma_set, lambda_mu_set, starting_point=starting_state_w)
 
     distance = torch.norm(final_point - nbs_point).item()
-    if ((final_point < 0).any()) or ((nbs_point < 0).any()) or torch.abs(torch.sum(final_point) - 1) > 1e-6 or torch.abs(torch.sum(nbs_point) - 1) > 1e-6 :
+    if ((final_point < 0).any()) or ((nbs_point < 0).any()) or torch.abs(torch.sum(final_point) - 1) > 1e-6 or torch.abs(torch.sum(nbs_point) - 1) > 1e-6:
         print("ERROR CASE: ", final_point, nbs_point, torch.sum(final_point), torch.sum(nbs_point), distance, seed)
-    return final_point.tolist(), nbs_point.tolist(), distance
+
+    return final_point.tolist(), nbs_point.tolist(), dist_between_agent_solutions, distance
+
 
 
 if __name__ == "__main__":
     seed = 42
     torch.set_default_dtype(torch.float64)
-    num_agents_list = [2, 3, 5, 10, 50]
-    n_list = [5, 10, 20, 50]
+    num_agents_list = [50]
+    n_list = [50]
     distance_dict = {}
-    num_tests = 1000
+    num_tests = 100
 
     for num_agents in num_agents_list:
         distance_dict[num_agents] = {}
@@ -60,8 +78,9 @@ if __name__ == "__main__":
                 results = [f.result() for f in concurrent.futures.as_completed(futures)]
 
             distance_dict[num_agents][n] = results
-            distances = [r[2] for r in results]
-            print(f"Average Distance with {num_agents} Agents and {n} Stocks: {np.mean(distances):.6f}")
+            distances = [r[3] for r in results]
+            distances_between_agent_solutions = [r[2] for r in results]
+            print(f"Average Distance with {num_agents} Agents and {n} Stocks: {np.mean(distances):.6f}, {np.mean(distances_between_agent_solutions):.6f}")
 
     with open('solution_concept_nash_results.json', 'w') as f:
         json.dump(distance_dict, f)
