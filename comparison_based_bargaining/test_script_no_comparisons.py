@@ -11,6 +11,7 @@ def single_test_run(num_agents, n, seed_offset=0):
     seed = 42 + seed_offset
     torch.manual_seed(seed)
     random.seed(seed)
+    np.random.seed(seed)
 
     with open('top_100_tickers_2023.json', 'r') as f:
         tickers = json.load(f)[:n]
@@ -40,14 +41,15 @@ def single_test_run(num_agents, n, seed_offset=0):
     final_simplex = from_subspace_to_simplex(final_point)
     nbs_simplex = nbs_point
     distance = torch.norm(final_simplex - nbs_simplex).item()
+    print("Double-Checking the Output Here: ", final_simplex, nbs_simplex, distance, seed)
     return final_simplex.tolist(), nbs_simplex.tolist(), distance
 
 
 if __name__ == "__main__":
     seed = 42
     torch.set_default_dtype(torch.float64)
-    num_agents_list = [2, 3, 5, 10, 50]
-    n_list = [5, 10, 20, 50]
+    num_agents_list = [2]
+    n_list = [5]
     distance_dict = {}
     num_tests = 1000
 
