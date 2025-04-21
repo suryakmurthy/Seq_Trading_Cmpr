@@ -19,7 +19,7 @@ def single_test_run(num_agents, n, seed_offset=0):
     start_date_list, end_date_list, lambda_vals = sample_random_ranges_and_lambdas(num_agents)
     Sigma_set = []
     lambda_mu_set = []
-
+    print("Seed Values: ", start_date_list, end_date_list, lambda_vals, seed)
     for agent in range(num_agents):
         Sigma, lambda_mu, _ = setup_markowitz_environment_cached(
             tickers, start_date_list[agent], end_date_list[agent], lambda_vals[agent])
@@ -48,7 +48,7 @@ def single_test_run(num_agents, n, seed_offset=0):
 if __name__ == "__main__":
     seed = 42
     torch.set_default_dtype(torch.float64)
-    num_agents_list = [2]
+    num_agents_list = [3]
     n_list = [5]
     distance_dict = {}
     num_tests = 1000
