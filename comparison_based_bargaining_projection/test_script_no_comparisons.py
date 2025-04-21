@@ -49,7 +49,7 @@ if __name__ == "__main__":
     num_agents_list = [2, 3, 5, 10, 50]
     n_list = [5, 10, 20, 50]
     distance_dict = {}
-    num_tests = 100
+    num_tests = 1000
 
     for num_agents in num_agents_list:
         distance_dict[num_agents] = {}
