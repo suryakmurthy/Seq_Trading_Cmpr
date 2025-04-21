@@ -11,6 +11,7 @@ def single_test_run(num_agents, n, seed_offset=0):
     seed = 42 + seed_offset
     torch.manual_seed(seed)
     random.seed(seed)
+    np.random.seed(seed)
 
     with open('top_100_tickers_2023.json', 'r') as f:
         tickers = json.load(f)[:n]
@@ -18,7 +19,7 @@ def single_test_run(num_agents, n, seed_offset=0):
     start_date_list, end_date_list, lambda_vals = sample_random_ranges_and_lambdas(num_agents)
     Sigma_set = []
     lambda_mu_set = []
-
+    print("Test with seed: ", seed, start_date_list, end_date_list, lambda_vals)
     for agent in range(num_agents):
         Sigma, lambda_mu, _ = setup_markowitz_environment_cached(
             tickers, start_date_list[agent], end_date_list[agent], lambda_vals[agent])
@@ -41,7 +42,8 @@ def single_test_run(num_agents, n, seed_offset=0):
 
     final_simplex = from_subspace_to_simplex(final_point)
     final_simplex_comparison = from_subspace_to_simplex(final_point_comparisons)
-    print("CHecking final points: ", final_simplex, final_simplex_comparison)
+
+    print("CHecking final points: ", final_simplex, final_simplex_comparison, seed)
     nbs_simplex = nbs_point
     distance = torch.norm(final_simplex - nbs_simplex).item()
     distance_between_comparison_solutions = torch.norm(final_simplex - final_simplex_comparison).item()
@@ -52,8 +54,8 @@ def single_test_run(num_agents, n, seed_offset=0):
 if __name__ == "__main__":
     seed = 42
     torch.set_default_dtype(torch.float64)
-    num_agents_list = [2, 3, 5, 10, 50]
-    n_list = [5, 10, 20, 50]
+    num_agents_list = [2] #, 3, 5, 10, 50]
+    n_list = [3] #, 10, 20, 50]
     distance_dict = {}
     num_tests = 1000
 
