@@ -12,10 +12,16 @@ def solve_markowitz(Sigma: torch.Tensor, lambda_mu: torch.Tensor):
     """
     Solve Markowitz optimization using convex programming with simplex constraints.
     """
+
+
     Sigma_np = Sigma.detach().cpu().numpy()
     lambda_mu_np = lambda_mu.detach().cpu().numpy()
     n = len(lambda_mu_np)
     w = cp.Variable(n)
+
+    eigvals = np.linalg.eigvalsh(Sigma_np)
+    print("Min eigenvalue:", np.min(eigvals))
+    print("Condition number:", np.max(eigvals) / np.min(eigvals))
 
     objective = cp.Minimize(cp.quad_form(w, Sigma_np) - lambda_mu_np @ w)
     constraints = [cp.sum(w) == 1, w >= 0]
@@ -110,57 +116,59 @@ def solve_nbs_cvxpy(Sigma_list, lambda_mu_list, disagreement=-1.0):
 
     return w.value
 
-def estimate_gradient_fd_subspace(v, Sigma, lambda_mu, epsilon=1e-5, barrier_coeff=1e-6):
-    v_np = v.detach().numpy()
+def estimate_gradient_fd_simplex(w, Sigma, lambda_mu, epsilon=1e-5):
+    w_np = w.detach().numpy()
     query_counter = {'count': 0}
 
-    def wrapped_fn(v_input_np):
+    def wrapped_fn(w_input_np):
         query_counter['count'] += 1
-        v_input = torch.tensor(v_input_np, dtype=v.dtype)
-        w = from_subspace_to_simplex(v_input)
+        w = torch.tensor(w_input_np, dtype=torch.float64)
 
-        eps = 1e-6
         quad = torch.dot(w, Sigma @ w)
         linear = torch.dot(lambda_mu, w)
         loss = quad - linear
 
-        barrier = -torch.sum(torch.log(w + eps)) - torch.log(1.0 - torch.sum(v_input) + eps)
-        total = loss + barrier_coeff * barrier
-        return total.item()
+        return loss.item()
 
-    grad_np = approx_fprime(v_np, wrapped_fn, epsilon)
-    grad_est = torch.tensor(grad_np, dtype=v.dtype)
-    grad_true = compute_simplex_gradient(v, Sigma, lambda_mu)
+    grad_np = approx_fprime(w_np, wrapped_fn, epsilon)
+    grad_est = torch.tensor(grad_np, dtype=w.dtype)
+    grad_true = compute_simplex_gradient(w, Sigma, lambda_mu)
     grad_error = torch.norm(grad_est - grad_true).item()
     return grad_est, query_counter['count'], grad_error
 
 def solve_nbs_zeroth_order(Sigma_list, lambda_mu_list, starting_point=None,
-                           disagreement=-1.0, steps=1000, lr=0.01, barrier_coeff=1e-6):
+                           disagreement=-1.0, steps=1000, lr=0.01):
     m = len(Sigma_list)
     n = Sigma_list[0].shape[0]
-    v = torch.ones(n - 1, dtype=torch.float64) * (1.0 / n) if starting_point is None else starting_point.clone()
+    w = torch.ones(n, dtype=torch.float64) * (1.0 / n) if starting_point is None else starting_point.clone()
     total_queries = 0
     grad_errors = []
 
     for step in range(steps):
-        grad_sum = torch.zeros_like(v)
+        grad_sum = torch.zeros_like(w)
         for i in range(m):
-            w = from_subspace_to_simplex(v)
             u_i = torch.dot(lambda_mu_list[i], w) - torch.dot(w, Sigma_list[i] @ w)
             if u_i <= disagreement:
                 continue
-            grad_i, query_count, grad_error = estimate_gradient_fd_subspace(v, Sigma_list[i], lambda_mu_list[i], disagreement, epsilon=1e-5, barrier_coeff=barrier_coeff)
-            grad_i = -1 * grad_i
+            grad_i, query_count, grad_error = estimate_gradient_fd_simplex(w, Sigma_list[i], lambda_mu_list[i])
+
+            grad_i = -1 * project_gradient_to_simplex_tangent(grad_i)
             grad_sum += grad_i / (u_i - disagreement + 1e-8)
             total_queries += query_count
             grad_errors.append(grad_error)
 
         grad_norm = grad_sum.norm()
         if grad_norm > 0:
-            v = v + lr * grad_sum / grad_norm
+            w_next = w + (lr * (grad_sum / grad_norm))
+            while ((w_next < 0).any()) and lr > 1e-12:
+                lr *= 0.1
+                w_next = w + (lr * (grad_sum / grad_norm))
+            if lr <= 1e-12:
+                break
+            w = w_next.detach().clone().requires_grad_(True)
 
     avg_grad_error = np.mean(grad_errors) if grad_errors else 0.0
-    return from_subspace_to_simplex(v).detach(), total_queries
+    return w.detach(), total_queries
 
 def solve_nbs_barrier(Sigma_list, lambda_mu_list, disagreement=-1.0, barrier_coeff=1e-6):
     """
@@ -314,8 +322,13 @@ def run_our_solution_concept_comparisons_parallel_sign_opt(x0, Sigma_set, lambda
                     print(f"⚠️ Gradient estimation failed for one agent: {e}")
 
         if norm_sum > 0:
-            x = x - step_size * (grad_sum / norm_sum)
-        x = x.detach().clone().requires_grad_(True)
+            x_new = x - step_size * (grad_sum / norm_sum)
+            while ((x_new < 0).any()) and step_size > 1e-12:
+                step_size *= 0.1
+                x_new = x - step_size * (grad_sum / norm_sum)
+            if step_size <= 1e-12:
+                break
+            x = x_new.detach().clone().requires_grad_(True)
         # print("Updating State: ", step, x)
 
     return x, total_queries
