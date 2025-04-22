@@ -4,7 +4,13 @@ import json
 import numpy as np
 import concurrent.futures
 from helper_functions import sample_from_simplex, sample_random_ranges_and_lambdas, setup_markowitz_environment_cached
-from solution_concepts import solve_markowitz, run_our_solution_concept_actual, solve_nbs_first_order_simplex
+from solution_concepts import solve_markowitz, run_our_solution_concept_actual, solve_nbs_first_order_simplex, solve_nbs_cvxpy
+
+def markowitz_function(w, Sigma, lambda_mu):
+    quad = torch.dot(w, Sigma @ w)
+    linear = torch.dot(lambda_mu, w)
+    loss = quad - linear
+    return loss.item()
 
 def single_test_run(num_agents, n, seed_offset=0):
     base_seed = 42 + seed_offset
@@ -33,8 +39,8 @@ def single_test_run(num_agents, n, seed_offset=0):
         for agent in range(num_agents):
             Sigma, lambda_mu, _ = setup_markowitz_environment_cached(
                 tickers, start_date_list[agent], end_date_list[agent], lambda_vals[agent])
-            Sigma_set_list.append(Sigma.tolist())
-            lambda_mu_set_list.append(lambda_mu.tolist())
+            Sigma_set_list.append(Sigma)
+            lambda_mu_set_list.append(lambda_mu)
             Sigma_set.append(torch.tensor(Sigma, dtype=torch.float64))
             lambda_mu_set.append(torch.tensor(lambda_mu, dtype=torch.float64))
 
@@ -61,12 +67,26 @@ def single_test_run(num_agents, n, seed_offset=0):
     final_point = run_our_solution_concept_actual(starting_state_w, Sigma_set, lambda_mu_set, solution_set)
     # print("Double-Checking Starting Point: ", starting_state_w)
     nbs_point = solve_nbs_first_order_simplex(Sigma_set, lambda_mu_set, starting_point=starting_state_w)
-
+    nbs_point_true = solve_nbs_cvxpy(Sigma_set_list, lambda_mu_set_list)
     distance = torch.norm(final_point - nbs_point).item()
+    # print(Sigma_set_list, lambda_mu_set_list)
+    for w_opt_idx in range(len(solution_set)):
+        w_opt = solution_set[w_opt_idx]
+        # print("Distances to optimal points: ", torch.norm(w_opt - final_point))
+        # print("Distances to optimal points: ", torch.norm(w_opt - nbs_point))
+        eval_w_opt = markowitz_function(w_opt, Sigma_set[w_opt_idx], lambda_mu_set[w_opt_idx])
+        eval_nbs = markowitz_function(nbs_point, Sigma_set[w_opt_idx], lambda_mu_set[w_opt_idx])
+        eval_ours = markowitz_function(final_point, Sigma_set[w_opt_idx], lambda_mu_set[w_opt_idx])
+        # print("Distances to values: ", eval_w_opt, eval_nbs, eval_ours)
+
     if ((final_point < 0).any()) or ((nbs_point < 0).any()) or torch.abs(torch.sum(final_point) - 1) > 1e-6 or torch.abs(torch.sum(nbs_point) - 1) > 1e-6:
         print("ERROR CASE: ", final_point, nbs_point, torch.sum(final_point), torch.sum(nbs_point), distance, seed)
-
-    return seed, final_point.tolist(), nbs_point.tolist(), starting_state_w.detach().cpu().numpy().tolist(), solution_set_np, distance
+    utility_values_ours = []
+    utility_values_nash = []
+    for agent_idx in range(num_agents):
+        utility_values_ours.append(markowitz_function(final_point, Sigma_set[agent_idx], lambda_mu_set[agent_idx]))
+        utility_values_nash.append(markowitz_function(nbs_point, Sigma_set[agent_idx], lambda_mu_set[agent_idx]))
+    return seed, final_point.tolist(), nbs_point.tolist(), starting_state_w.detach().cpu().numpy().tolist(), solution_set_np, utility_values_ours, utility_values_nash
 
 
 
@@ -74,7 +94,7 @@ if __name__ == "__main__":
     seed = 42
     torch.set_default_dtype(torch.float64)
     num_agents_list = [2, 3, 5, 10, 50]
-    n_list = [5, 10, 20, 50]
+    n_list = [3, 10, 20, 50]
     distance_dict = {}
     num_tests = 1000
 
@@ -89,7 +109,5 @@ if __name__ == "__main__":
                 results = [f.result() for f in concurrent.futures.as_completed(futures)]
 
             distance_dict[num_agents][n] = results
-            distances = [r[-1] for r in results]
-            print(f"Average Distance with {num_agents} Agents and {n} Stocks: {np.mean(distances):.6f}")
             with open('solution_concept_nash_results.json', 'w') as f:
                 json.dump(distance_dict, f)
