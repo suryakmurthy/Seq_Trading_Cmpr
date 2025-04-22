@@ -16,6 +16,8 @@ def single_test_run(num_agents, n, seed_offset=0):
     attempt = 0
     solution_set = []
     solution_set_np = []
+    Sigma_set_list = []
+    lambda_mu_set_list = []
     while not success:
         # Increment seed to ensure variation across retries
         seed = base_seed + attempt
@@ -26,10 +28,13 @@ def single_test_run(num_agents, n, seed_offset=0):
         start_date_list, end_date_list, lambda_vals = sample_random_ranges_and_lambdas(num_agents)
         Sigma_set = []
         lambda_mu_set = []
-
+        Sigma_set_list = []
+        lambda_mu_set_list = []
         for agent in range(num_agents):
             Sigma, lambda_mu, _ = setup_markowitz_environment_cached(
                 tickers, start_date_list[agent], end_date_list[agent], lambda_vals[agent])
+            Sigma_set_list.append(Sigma.tolist())
+            lambda_mu_set_list.append(lambda_mu.tolist())
             Sigma_set.append(torch.tensor(Sigma, dtype=torch.float64))
             lambda_mu_set.append(torch.tensor(lambda_mu, dtype=torch.float64))
 
@@ -61,7 +66,7 @@ def single_test_run(num_agents, n, seed_offset=0):
     if ((final_point < 0).any()) or ((nbs_point < 0).any()) or torch.abs(torch.sum(final_point) - 1) > 1e-6 or torch.abs(torch.sum(nbs_point) - 1) > 1e-6:
         print("ERROR CASE: ", final_point, nbs_point, torch.sum(final_point), torch.sum(nbs_point), distance, seed)
 
-    return final_point.tolist(), nbs_point.tolist(), starting_state_w.detach().cpu().numpy().tolist(), solution_set_np, distance
+    return Sigma_set_list, lambda_mu_set_list, final_point.tolist(), nbs_point.tolist(), starting_state_w.detach().cpu().numpy().tolist(), solution_set_np, distance
 
 
 
