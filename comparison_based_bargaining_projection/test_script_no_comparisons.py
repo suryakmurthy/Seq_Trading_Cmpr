@@ -81,6 +81,5 @@ if __name__ == "__main__":
             distances = [r[3] for r in results]
             distances_between_agent_solutions = [r[2] for r in results]
             print(f"Average Distance with {num_agents} Agents and {n} Stocks: {np.mean(distances):.6f}, {np.mean(distances_between_agent_solutions):.6f}")
-
-    with open('solution_concept_nash_results.json', 'w') as f:
-        json.dump(distance_dict, f)
+            with open('solution_concept_nash_results.json', 'w') as f:
+                json.dump(distance_dict, f)
