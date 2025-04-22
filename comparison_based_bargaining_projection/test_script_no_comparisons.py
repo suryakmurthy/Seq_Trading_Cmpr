@@ -7,7 +7,7 @@ from helper_functions import sample_from_simplex, sample_random_ranges_and_lambd
 from solution_concepts import solve_markowitz, run_our_solution_concept_actual, solve_nbs_first_order_simplex
 
 def single_test_run(num_agents, n, seed_offset=0):
-    base_seed = 577
+    base_seed = 42 + seed_offset
 
     with open('top_100_tickers_2023.json', 'r') as f:
         tickers = json.load(f)[:n]
@@ -68,10 +68,10 @@ def single_test_run(num_agents, n, seed_offset=0):
 if __name__ == "__main__":
     seed = 42
     torch.set_default_dtype(torch.float64)
-    num_agents_list = [50]
-    n_list = [50]
+    num_agents_list = [2, 3, 5, 10, 50]
+    n_list = [5, 10, 20, 50]
     distance_dict = {}
-    num_tests = 1
+    num_tests = 1000
 
     for num_agents in num_agents_list:
         distance_dict[num_agents] = {}
