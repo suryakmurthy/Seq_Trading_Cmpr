@@ -57,9 +57,9 @@ def single_test_run(num_agents, n, seed_offset=0):
 
     # Rest of your logic (now guaranteed to have valid solution_set)
     starting_state_w = torch.tensor(sample_from_simplex(n), dtype=torch.float64)
-    print("Initial Check of Starting Point: ", starting_state_w)
+    # print("Initial Check of Starting Point: ", starting_state_w)
     final_point = run_our_solution_concept_actual(starting_state_w, Sigma_set, lambda_mu_set, solution_set)
-    print("Double-Checking Starting Point: ", starting_state_w)
+    # print("Double-Checking Starting Point: ", starting_state_w)
     nbs_point = solve_nbs_first_order_simplex(Sigma_set, lambda_mu_set, starting_point=starting_state_w)
 
     distance = torch.norm(final_point - nbs_point).item()
