@@ -66,7 +66,7 @@ def single_test_run(num_agents, n, seed_offset=0):
     if ((final_point < 0).any()) or ((nbs_point < 0).any()) or torch.abs(torch.sum(final_point) - 1) > 1e-6 or torch.abs(torch.sum(nbs_point) - 1) > 1e-6:
         print("ERROR CASE: ", final_point, nbs_point, torch.sum(final_point), torch.sum(nbs_point), distance, seed)
 
-    return Sigma_set_list, lambda_mu_set_list, final_point.tolist(), nbs_point.tolist(), starting_state_w.detach().cpu().numpy().tolist(), solution_set_np, distance
+    return seed, final_point.tolist(), nbs_point.tolist(), starting_state_w.detach().cpu().numpy().tolist(), solution_set_np, distance
 
 
 
