@@ -7,7 +7,7 @@ from helper_functions import sample_from_simplex, sample_random_ranges_and_lambd
 from solution_concepts import solve_markowitz, run_our_solution_concept_actual, run_our_solution_concept_comparisons, solve_nbs_first_order_simplex, solve_nbs_zeroth_order, run_our_solution_concept_comparisons_parallel, run_our_solution_concept_comparisons_parallel_sign_opt
 
 def single_test_run(num_agents, n, seed_offset=0):
-    base_seed = 42 + seed_offset
+    base_seed = 577
     torch.manual_seed(base_seed)
     random.seed(base_seed)
     np.random.seed(base_seed)
@@ -60,9 +60,13 @@ def single_test_run(num_agents, n, seed_offset=0):
 
 
     starting_state_w = torch.tensor(sample_from_simplex(n), dtype=torch.float64)
+    # print("1: ", starting_state_w)
     final_point_comparisons, query_count_ours = run_our_solution_concept_comparisons_parallel_sign_opt(starting_state_w, Sigma_set, lambda_mu_set, solution_set)
+    # print("2: ", starting_state_w)
     final_point = run_our_solution_concept_actual(starting_state_w, Sigma_set, lambda_mu_set, solution_set)
+    # print("3: ", starting_state_w)
     nbs_point = solve_nbs_first_order_simplex(Sigma_set, lambda_mu_set, starting_point=starting_state_w)
+    # print("4: ", starting_state_w)
     nbs_point_zeroth_order, query_count_nbs = solve_nbs_zeroth_order(Sigma_set, lambda_mu_set, starting_point=starting_state_w)
 
     final_simplex = final_point
@@ -79,10 +83,10 @@ def single_test_run(num_agents, n, seed_offset=0):
 if __name__ == "__main__":
     seed = 42
     torch.set_default_dtype(torch.float64)
-    num_agents_list = [2, 3, 5, 10, 50]
-    n_list = [5, 10, 20, 50]
+    num_agents_list = [50]
+    n_list = [50]
     distance_dict = {}
-    num_tests = 100
+    num_tests = 1
 
     for num_agents in num_agents_list:
         distance_dict[num_agents] = {}

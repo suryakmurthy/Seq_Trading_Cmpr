@@ -73,14 +73,16 @@ def single_test_run(num_agents, n, seed_offset=0):
 if __name__ == "__main__":
     seed = 42
     torch.set_default_dtype(torch.float64)
-    num_agents_list = [50]
-    n_list = [50]
+    num_agents_list = [2, 3, 5, 10, 50]
+    n_list = [5, 10, 20, 50]
     distance_dict = {}
     num_tests = 1000
 
     for num_agents in num_agents_list:
         distance_dict[num_agents] = {}
         for n in n_list:
+            if num_agents == 50 and n == 50:
+                continue
             print(f"Running {num_tests} tests for {num_agents} agents and {n} stocks...")
             with concurrent.futures.ProcessPoolExecutor() as executor:
                 futures = [executor.submit(single_test_run, num_agents, n, i) for i in range(num_tests)]
@@ -89,5 +91,5 @@ if __name__ == "__main__":
             distance_dict[num_agents][n] = results
             distances = [r[-1] for r in results]
             print(f"Average Distance with {num_agents} Agents and {n} Stocks: {np.mean(distances):.6f}")
-            with open('solution_concept_nash_results_50.json', 'w') as f:
+            with open('solution_concept_nash_results.json', 'w') as f:
                 json.dump(distance_dict, f)
