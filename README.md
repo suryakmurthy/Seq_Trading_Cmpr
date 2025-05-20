@@ -1,4 +1,4 @@
-##Sequential Resource Trading Using Comparison-Based Gradient Estimation
+# Sequential Resource Trading Using Comparison-Based Gradient Estimation
 
 This is the repository for the numerical and human interaction experiments performed in the paper Sequential Resource Trading Using Comparison-Based Gradient Estimation
 
