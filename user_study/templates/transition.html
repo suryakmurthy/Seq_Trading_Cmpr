@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Dynamically change title based on scenario number -->
+    <title>Start Trading Scenario</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .prompt-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            text-align: center;
+        }
+
+        button {
+            padding: 12px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        h2, h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        p {
+            color: #555;
+            margin-bottom: 20px;
+        }
+
+        #timer-bar-container {
+            width: 100%;
+            height: 10px;
+            background-color: #e0e0e0;
+            margin-top: 20px;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        #timer-bar {
+            width: 0%;
+            height: 100%;
+            background-color: #4CAF50;
+        }
+
+        #countdown {
+            position: sticky;
+            bottom: 0;
+            background-color: #ffffff;
+            color: #f44336;
+            font-weight: bold;
+            font-size: 20px;
+            text-align: center;
+            padding: 10px;
+            border-top: 2px solid #ccc;
+            z-index: 1000;
+        }
+    </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            let timer;
+            let countdown;
+            const totalDuration = 30; // 30 seconds for testing
+            let time = totalDuration;
+
+            // Start the timer
+            function startTimer(duration) {
+                $('#timer-bar-container').show();
+                $('#countdown').show();
+
+                timer = setInterval(function () {
+                    const width = (time / totalDuration) * 100;
+                    $('#timer-bar').css('width', width + '%');
+
+                    if (--time < 0) {
+                        clearInterval(timer);
+                        clearInterval(countdown);
+                        endScenario(); // Redirects when time is up
+                    }
+                }, 1000);
+
+                countdown = setInterval(function () {
+                    const minutes = Math.floor(time / 60);
+                    const seconds = time % 60;
+
+                    $('#countdown').text("Time left: " +
+                        (minutes < 10 ? "0" + minutes : minutes) + ":" +
+                        (seconds < 10 ? "0" + seconds : seconds));
+
+                    if (time <= 60) {  // Change color in the last minute
+                        $('#countdown').css('color', '#ff0000'); // Red color for urgency
+                    }
+
+                    if (time <= 0) {
+                        clearInterval(countdown);
+                    }
+                }, 1000);
+            }
+
+            // Redirect to the next trading scenario when time runs out
+            function endScenario() {
+                window.location.href='{{ url_for('chat', folder_key=folder_key, algorithm=algorithm) }}'; // Change this URL to your actual endpoint
+            }
+
+            // Initialize the timer on page load
+            startTimer(totalDuration);
+        });
+    </script>
+</head>
+<body>
+    <div class="prompt-container">
+        <!-- Dynamically display scenario number in the header -->
+        <h2>Starting a New Trading Scenario</h2>
+        <p>
+            Your items will be set to <strong>50 apples, 50 bananas, and 50 oranges</strong>.
+        </p>
+        <button id="confirm-button" onclick="window.location.href='{{ url_for('chat', folder_key=folder_key, algorithm=algorithm) }}'">Start New Trading Scenario</button>
+    </div>
+
+    <div id="timer-bar-container">
+        <div id="timer-bar"></div>
+    </div>
+
+    <!-- Sticky countdown at the bottom -->
+    <div id="countdown"></div>
+</body>
+</html>

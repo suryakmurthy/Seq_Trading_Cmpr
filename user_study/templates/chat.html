@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Interface</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            display: flex;
+            width: 100%;
+            max-width: 1200px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 250px;
+            background-color: #f8f9fa;
+            padding: 20px;
+            box-sizing: border-box;
+            border-right: 1px solid #ddd;
+        }
+
+        .sidebar h3 {
+            margin-top: 25px;
+            font-size: 18px;
+            color: #333;
+        }
+        .sidebar h4 {
+            margin-top: 15px;
+            font-size: 18px;
+            color: #333;
+        }
+
+        .content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        #overall-countdown {
+            white-space: nowrap; /* Keep the countdown on a single line */
+        }
+
+        #chat-box {
+            flex-grow: 1;
+            width: 100%;
+            height: 400px;
+            overflow-y: scroll;
+            border: 1px solid #ccc;
+            padding: 10px;
+            box-sizing: border-box;
+            background-color: #f9f9f9;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+
+        pre {
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+
+        #button-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #message-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+
+        #send-button, #stop-button {
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        #send-button {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        #stop-button {
+            background-color: #f44336;
+            color: white;
+        }
+
+        #timer-bar-container {
+            width: 100%;
+            height: 10px;
+            background-color: #e0e0e0;
+            margin-top: 10px;
+            border-radius: 5px;
+            overflow: hidden;
+            display: none;
+        }
+
+        #timer-bar {
+            width: 0%;
+            height: 100%;
+            background-color: #4CAF50;
+        }
+
+        #countdown {
+            margin-top: 5px;
+            font-weight: bold;
+            color: #f44336;
+            display: none;
+            text-align: center;
+        }
+
+
+        #satisfaction-form {
+            margin-top: 20px;
+            display: none;
+            text-align: center;
+        }
+
+
+        #satisfaction-form label {
+            display: inline-block; /* Make the labels appear side-by-side */
+            margin-right: 20px; /* Increase horizontal space between radio buttons */
+        }
+
+        #satisfaction-form h3 {
+            margin-bottom: 10px;
+        }
+
+        #satisfaction-form input[type="radio"] {
+            margin-right: 2px;
+        }
+
+        #satisfaction-form button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #end-trading-modal {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #stop-trading-modal {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .acknowledgment {
+            background-color: #f0f8ff;  /* Light blue background */
+            border-left: 4px solid #00bfff;  /* Blue border on the left */
+            padding: 10px;
+            margin-bottom: 10px;
+            font-style: italic;
+        }
+        .message-box {
+            border: 1px solid #ccc;
+            background-color: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+        }
+
+
+    </style>
+    <script type="text/javascript">
+        $(document).ready(function() {
+            const folderKey = "{{ folder_key }}";
+            let timer; // Timer interval variable
+            let countdown; // Countdown variable
+            let overallTimer; // Overall countdown timer variable
+            let tradeCount = 0;
+            const clearThreshold = 5;
+
+            function startOverallCountdown(duration) {
+                let time = duration, minutes, seconds;
+
+                overallTimer = setInterval(function() {
+                    minutes = parseInt(time / 60, 10);
+                    seconds = parseInt(time % 60, 10);
+
+                    minutes = minutes < 10 ? "0" + minutes : minutes;
+                    seconds = seconds < 10 ? "0" + seconds : seconds;
+
+                    $('#overall-countdown').text(`Overall Time left: ${minutes}:${seconds}`);
+
+                    if (--time < 0) {
+                        clearInterval(overallTimer);
+                        autoStopTrading(); // Automatically stop trading if overall countdown reaches zero
+                    }
+                }, 1000);
+            }
+
+            function sendMessage() {
+                const message = $('#message-input').val();
+                if (message.trim() === "") return;  // Prevent sending empty messages
+                clearInterval(timer); // Clear the timer on send
+                clearInterval(countdown); // Clear countdown interval
+
+                $.ajax({
+                    url: '/send_response',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({response: message, folder_key: folderKey}),
+                    success: function(response) {
+                        $('#chat-box').append('<div class="message-box" style="color: Blue;"><i>User: ' + message + '</i></div>');
+                        $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
+                        $('#message-input').val('');
+                        $('#button-container').hide();
+                        $('#satisfaction-form').show();  // Show satisfaction form after response is sent
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error:', status, error);
+                    }
+                });
+            }
+
+            // Start the overall countdown (10 minutes = 600 seconds)
+            startOverallCountdown(600);
+
+            function autoStopTrading() {
+                $.ajax({
+                    url: '/send_response',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({response: 'stop', folder_key: folderKey}),
+                    success: function(response) {
+                        $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
+                        $('#message-input').prop('disabled', true);
+                        $('#send-button').prop('disabled', true);
+                        $('#stop-button').prop('disabled', true);
+
+                        // Redirect to overall satisfaction form with folder_key
+                        window.location.href = '/overall_satisfaction/' + folderKey;
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error:', status, error);
+                    }
+                });
+            }
+
+            function startTimer(duration) {
+                let time = duration, minutes, seconds;
+                let width = 100;
+                const totalDuration = duration;
+
+                $('#timer-bar-container').show(); // Show the timer bar
+                $('#countdown').show(); // Show the countdown text
+
+                timer = setInterval(function () {
+                    width = (time / totalDuration) * 100;
+                    $('#timer-bar').css('width', width + '%');
+
+                    if (--time < 0) {
+                        clearInterval(timer);
+                        autoStopTrading(); // Automatically stop trading if time runs out
+                    }
+                }, 1000);
+
+                countdown = setInterval(function () {
+                    minutes = parseInt(time / 60, 10);
+                    seconds = parseInt(time % 60, 10);
+
+                    minutes = minutes < 10 ? "0" + minutes : minutes;
+                    seconds = seconds < 10 ? "0" + seconds : seconds;
+
+                    $('#countdown').text("Time left to respond to the current trade offer: " + minutes + ":" + seconds);
+
+                    if (time <= 0) {
+                        clearInterval(countdown);
+                    }
+                }, 1000);
+            }
+
+            function fetchOffer() {
+                $.get('/get_offer', { folder_key: folderKey }, function (response) {
+                    if (response.offer) {
+                        // Check if the offer is the special message to end trading
+                        if (response.offer === "The algorithm has ended trading, please press the Stop Trading button to end the scenario") {
+                            $('#end-trading-modal').show();  // Show the end trading modal
+                            $('#confirm-end').off('click').on('click', function () {
+                                $('#end-trading-modal').hide();
+                                autoStopTrading();  // Call the stop trading function
+                            });
+                        } else {
+                            // Custom formatting for the computer's acknowledgment part
+                            const formattedOffer = response.offer
+                                .replace(/(Computer: I understand that you would prefer the following offer:[\s\S]*?For now, please consider the following offer:)/g,
+                                    '<div class="acknowledgment">$1</div>')  // Wrap acknowledgment in a div with a special class
+                                .replace(/User gives:/g, '<strong>User gives:</strong>&nbsp;&nbsp;&nbsp;&nbsp;')
+                                .replace(/User receives:/g, '<strong>User receives:</strong>&nbsp;&nbsp;&nbsp;&nbsp;')
+                                .replace(/Do you accept this offer\?/g, 'Do you accept this offer?');
+
+                            $('#chat-box').append('<div class="message-box"><pre>' + formattedOffer + '</pre></div>');
+                            $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
+
+                            // Update the sidebar with the current and next states
+                            $('#current-apples').html(`<strong>Apples 🍏:</strong> ${response.current_apples}`);
+                            $('#current-bananas').html(`<strong>Bananas 🍌:</strong> ${response.current_bananas}`);
+                            $('#current-oranges').html(`<strong>Oranges 🍊:</strong> ${response.current_oranges}`);
+
+                            $('#next-apples').html(`<strong>Apples 🍏:</strong> ${response.next_apples}`);
+                            $('#next-bananas').html(`<strong>Bananas 🍌:</strong> ${response.next_bananas}`);
+                            $('#next-oranges').html(`<strong>Oranges 🍊:</strong> ${response.next_oranges}`);
+
+                            waitForResponse();
+                        }
+                    } else {
+                        setTimeout(fetchOffer, 1000);  // Poll for new offer
+                    }
+                }, 'json');
+            }
+
+
+
+
+            function waitForResponse() {
+                $('#message-input').prop('disabled', false);
+                $('#send-button').prop('disabled', false);
+
+                // Start the 2-minute timer (120 seconds)
+                startTimer(120);
+
+                $('#send-button').off('click').on('click', function(){
+                    sendMessage();
+                });
+
+                // Add an event listener for the "Enter" key
+                $('#message-input').off('keypress').on('keypress', function(e) {
+                    if (e.which === 13) {  // 13 is the Enter key
+                        sendMessage();
+                    }
+                });
+
+                $('#stop-button').off('click').on('click', function() {
+                    // Show the custom modal instead of the blocking confirm()
+                    $('#stop-trading-modal').show();
+
+                    // Handle the confirmation from the custom modal
+                    $('#confirm-stop').off('click').on('click', function() {
+                        // User confirmed stopping, clear the intervals and hide the timer
+                        clearInterval(timer);
+                        clearInterval(countdown);
+
+                        $('#timer-bar-container').hide();  // Hide the timer bar
+                        $('#countdown').hide();            // Hide the countdown text
+
+                        autoStopTrading(); // Stop trading function
+                        $('#stop-trading-modal').hide();  // Hide the modal
+                    });
+
+                    $('#cancel-stop').off('click').on('click', function() {
+                        // User canceled, continue the timer without clearing the intervals
+                        $('#stop-trading-modal').hide();  // Hide the modal, but timers will keep running
+                    });
+                });
+
+            }
+
+            $('#satisfaction-form button').on('click', function(){
+                const rating = $('input[name="satisfaction"]:checked').val();
+                if (rating) {
+                    $.ajax({
+                        url: '/submit_satisfaction',
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({rating: rating, folder_key: folderKey}),
+                        success: function(response) {
+                            $('#satisfaction-form').hide();  // Hide satisfaction form after submission
+                            $('#button-container').show();
+                            // Increment trade count
+                            tradeCount++;
+                            // Clear the form if the trade count reaches the threshold
+                            if (tradeCount >= clearThreshold) {
+                                $('input[name="satisfaction"]').prop('checked', false); // Clear selected radio buttons
+                                tradeCount = 0; // Reset the trade count
+                            }
+                            fetchOffer();  // Fetch the next offer after rating is submitted
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('Error:', status, error);
+                        }
+                    });
+                } else {
+                    alert("Please select a satisfaction rating.");
+                }
+            });
+
+            fetchOffer();  // Start fetching the first offer when the page loads
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div id="overall-countdown"></div>
+            <hr> <!-- Horizontal rule for separation -->
+
+            <h3>Your Current Items</h3>
+            <p id="current-apples"><strong>Apples 🍏:</strong> {{ current_apples }}</p>
+            <p id="current-bananas"><strong>Bananas 🍌:</strong> {{ current_bananas }}</p>
+            <p id="current-oranges"><strong>Oranges 🍊:</strong> {{ current_oranges }}</p>
+            <hr> <!-- Horizontal rule for separation -->
+
+            <h3>Your Items after the Proposed Trade</h3>
+            <p id="next-apples"><strong>Apples 🍏:</strong> {{ next_apples }}</p>
+            <p id="next-bananas"><strong>Bananas 🍌:</strong> {{ next_bananas }}</p>
+            <p id="next-oranges"><strong>Oranges 🍊:</strong> {{ next_oranges }}</p>
+            <hr> <!-- Horizontal rule for separation -->
+
+            <h3>Your Target Items</h3>
+            <p><strong>Target Apples 🍏:</strong> {{ apples }}</p>
+            <p><strong>Target Bananas 🍌:</strong> {{ bananas }}</p>
+            <p><strong>Target Oranges 🍊:</strong> {{ oranges }}</p>
+        </div>
+
+        <div class="content">
+            <div id="chat-box"></div>
+
+            <div id="button-container">
+                <input type="text" id="message-input" placeholder="Type your message here..." disabled />
+                <button id="send-button" disabled>Send</button>
+                <button id="stop-button">Stop Trading</button>
+            </div>
+
+            <div id="satisfaction-form">
+                <h3>How satisfied were you with the previous trade offer?</h3>
+                <label><input type="radio" name="satisfaction" value="1"> 1 - Very dissatisfied</label>
+                <label><input type="radio" name="satisfaction" value="2"> 2 - Somewhat dissatisfied</label>
+                <label><input type="radio" name="satisfaction" value="3"> 3 - Neutral</label>
+                <label><input type="radio" name="satisfaction" value="4"> 4 - Somewhat satisfied</label>
+                <label><input type="radio" name="satisfaction" value="5"> 5 - Very satisfied</label>
+                <button>Submit</button>
+            </div>
+
+            <div id="timer-bar-container">
+                <div id="timer-bar"></div>
+            </div>
+            <div id="countdown"></div>
+        </div>
+        <div id="stop-trading-modal" style="display:none;">
+            <div class="modal-content">
+                <p>Are you sure you want to stop trading?</p>
+                <button id="confirm-stop">Yes</button>
+                <button id="cancel-stop">No</button>
+            </div>
+        </div>
+        <!-- Add this modal HTML inside the <body> section -->
+        <div id="end-trading-modal" style="display: none;">
+            <div class="modal-content">
+                <p>The algorithm has ended trading. Please confirm to stop trading.</p>
+                <button id="confirm-end">Confirm</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instructions</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .prompt-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            line-height: 1.6;
+        }
+        h2, h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        p, ul {
+            color: #555;
+            margin-bottom: 20px;
+        }
+        ul {
+            list-style-type: disc;
+            margin-left: 20px;
+        }
+        .checkbox-container {
+            margin-top: 20px; /* Space between text and checkbox */
+            display: flex;
+            align-items: center; /* Center the checkbox with text */
+            font-size: 16px; /* Make the checkbox text larger */
+        }
+        .checkbox-container input[type="checkbox"] {
+            margin-right: 10px; /* Space between checkbox and label text */
+        }
+        .button-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .button-container button {
+            padding: 12px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px; /* Add margin for spacing */
+            width: 100%; /* Make the button full-width */
+        }
+        /* Sticky countdown styles */
+        #countdown {
+            position: sticky;
+            bottom: 0;
+            background-color: #ffffff;
+            color: #f44336;
+            font-weight: bold;
+            font-size: 20px;
+            text-align: center;
+            padding: 10px;
+            border-top: 2px solid #ccc;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div class="prompt-container">
+        <h2>Welcome to the Negotiation</h2>
+        <p>
+            You are making a fruit salad for <strong>100 people</strong>. Your goal is to obtain the amount of each fruit you want for the salad. You can have up to <strong>100 of each fruit</strong>.
+        </p>
+        <h3>Trading Process</h3>
+        <p>
+            You start with <strong>50 of each type of fruit</strong>. You will <strong>trade with a computer</strong> to obtain the desired amount of each fruit. The computer will make trade offers based on its <strong>own hidden preferences</strong>. After each offer, you can <strong>accept</strong> or <strong>reject</strong> the offer, and you may provide additional feedback.
+        </p>
+        <h4>Example Interaction</h4>
+        <blockquote>
+            <p><strong>Computer's Trade Offer:</strong><br>
+               User gives: <em>Nothing</em><br>
+               User receives: <em>5 apples</em><br>
+               <strong>Do you accept this trade?</strong></p>
+            <p><strong>User's Response:</strong><br>
+               No, how about I give you <em>5 apples for 10 oranges</em>?</p>
+        </blockquote>
+        <h4>After Each Offer</h4>
+        <p>You will rate each trade on a scale of <strong>1 to 5</strong> (1 = Not satisfied, 5 = Very satisfied). If you accept the offer, <strong>you’ll swap fruits and continue trading</strong>. If you reject the offer, the computer will make a new offer.</p>
+        <h4>Time Limit</h4>
+        <p>
+            You will participate in <strong>1 trading scenario</strong>. The scenario will last for a maximum of <strong>10 minutes</strong>, but you can stop early if you’re satisfied with your current number of fruits.
+        </p>
+
+        <div class="checkbox-container">
+            <input type="checkbox" id="instructionCheckbox" required>
+            <label for="instructionCheckbox">I have read and understood the instructions.</label>
+        </div>
+        <div class="button-container">
+            <button id="continueButton" type="button" onclick="redirectToNextPage()">Continue</button>
+        </div>
+    </div>
+
+    <div id="countdown"></div> <!-- Sticky timer display -->
+
+    <script>
+        let timeLeft = 300; // Set the timer duration (300 seconds = 5 minutes)
+
+        // Extract folder_key from the URL query parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const folderKey = urlParams.get('folder_key');
+
+        // Function to update the timer display
+        function updateTimer() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+
+            // Format the time as MM:SS
+            const formattedTime = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            document.getElementById('countdown').innerText = "Time left: " + formattedTime;
+
+            // Decrease time left
+            if (timeLeft > 0) {
+                timeLeft--;
+            } else {
+                clearInterval(timerInterval); // Stop the timer when it reaches 0
+                forceRedirectToNextPage(); // Redirect to the attention check page when time runs out
+            }
+        }
+
+        // Function to redirect when the user clicks "Continue" (with checkbox validation)
+        function redirectToNextPage() {
+            const checkbox = document.getElementById('instructionCheckbox');
+            if (checkbox.checked) {
+                // Redirect to attention check with folder_key
+                window.location.href = `/attention_check?folder_key=${folderKey}`;
+            } else {
+                alert("Please read and agree to the instructions before continuing.");
+            }
+        }
+
+        // Function to force redirect when the timer runs out (without checkbox validation)
+        function forceRedirectToNextPage() {
+            // Redirect to attention check with folder_key
+            window.location.href = `/attention_check?folder_key=${folderKey}`;
+        }
+
+        // Update the timer every second
+        const timerInterval = setInterval(updateTimer, 1000);
+    </script>
+
+
+
+</body>
+</html>

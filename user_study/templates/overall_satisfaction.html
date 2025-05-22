@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overall Satisfaction</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            display: flex;
+            width: 100%;
+            max-width: 800px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            padding: 20px;
+            box-sizing: border-box;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h3 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #666;
+        }
+
+        .countdown {
+            font-size: 24px;
+            color: #FF0000; /* Red color for visibility */
+            margin-bottom: 20px;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            gap: 10px;
+        }
+
+        input[type="radio"] {
+            margin: 5px 0;
+        }
+
+        label {
+            margin-left: 5px;
+        }
+
+        button {
+            padding: 10px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Overall Satisfaction</h1>
+        <h3>How satisfied were you with the overall trading experience in the last scenario?</h3>
+        <div class="countdown" id="countdown-timer">Time left: 1:00</div>
+        <form id="satisfaction-form">
+            <div>
+                <input type="radio" id="satisfaction-1" name="satisfaction" value="1">
+                <label for="satisfaction-1">1 - Very dissatisfied</label>
+            </div>
+            <div>
+                <input type="radio" id="satisfaction-2" name="satisfaction" value="2">
+                <label for="satisfaction-2">2 - Somewhat dissatisfied</label>
+            </div>
+            <div>
+                <input type="radio" id="satisfaction-3" name="satisfaction" value="3">
+                <label for="satisfaction-3">3 - Neutral</label>
+            </div>
+            <div>
+                <input type="radio" id="satisfaction-4" name="satisfaction" value="4">
+                <label for="satisfaction-4">4 - Somewhat satisfied</label>
+            </div>
+            <div>
+                <input type="radio" id="satisfaction-5" name="satisfaction" value="5">
+                <label for="satisfaction-5">5 - Very satisfied</label>
+            </div>
+            <button type="button" id="submit-rating">Submit Rating</button>
+        </form>
+    </div>
+
+    <script type="text/javascript">
+        // Folder key is now directly injected into the script using Jinja2
+        const folderKey = "{{ folder_key }}";
+        const algorithm = "{{ algorithm }}"; // Corrected line
+        console.log("Folder Key:", folderKey);
+
+        // Countdown timer variables
+        let timeLeft = 60; // 60 seconds
+        const countdownElement = document.getElementById('countdown-timer');
+
+        // Update the countdown timer every second
+        const countdownInterval = setInterval(function() {
+            timeLeft--;
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            countdownElement.textContent = `Time left: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+
+            if (timeLeft <= 0) {
+                clearInterval(countdownInterval);
+                window.location.href = '/next_scenario/' + folderKey + '/' + algorithm; // Redirect after countdown
+            }
+        }, 1000); // Update every second
+
+        $('#submit-rating').on('click', function(){
+            const rating = $('input[name="satisfaction"]:checked').val();
+            if (rating) {
+                clearInterval(countdownInterval); // Clear the countdown if the form is submitted
+                $.ajax({
+                    url: '/submit_overall_satisfaction',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({rating: rating, folder_key: folderKey, algorithm: algorithm}),
+                    success: function(response) {
+                        window.location.href = '/next_scenario/' + folderKey + '/' + algorithm;
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error:', status, error);
+                    }
+                });
+            } else {
+                alert("Please select a satisfaction rating.");
+            }
+        });
+    </script>
+</body>
+</html>

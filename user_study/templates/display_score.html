@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Score Display</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .score-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            line-height: 1.6;
+            text-align: center;
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        p {
+            color: #555;
+            margin-bottom: 20px;
+        }
+        .button-container {
+            text-align: center;
+        }
+        .button-container button {
+            padding: 12px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+        }
+        .button-container button:focus {
+            outline: none;
+        }
+        .button-container button:active {
+            background-color: #3e8e41;
+        }
+    </style>
+</head>
+<body>
+    <div class="score-container">
+        <h2>Your Score</h2>
+        <p>
+            You started with
+            <strong>{{ starting_state[0] }}</strong> apples,
+            <strong>{{ starting_state[1] }}</strong> bananas, and
+            <strong>{{ starting_state[2] }}</strong> oranges.
+        </p>
+        <p>
+            Your target was
+            <strong>{{ target_state[0] }}</strong> apples,
+            <strong>{{ target_state[1] }}</strong> bananas, and
+            <strong>{{ target_state[2] }}</strong> oranges.
+        </p>
+        <p>You ended with
+            <strong>{{ final_state[0] }}</strong> apples,
+            <strong>{{ final_state[1] }}</strong> bananas, and
+            <strong>{{ final_state[2] }}</strong> oranges.
+        </p>
+        <p>Your score is: <strong>{{ score }}%</strong></p>
+        <div class="button-container">
+            <form method="POST" action="/trading_ended/{{ folder_key }}">
+                <button type="submit">Confirm</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

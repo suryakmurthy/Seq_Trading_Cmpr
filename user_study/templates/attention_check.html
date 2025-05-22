@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attention Check</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .attention-check-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            line-height: 1.6;
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        p {
+            color: #555;
+            margin-bottom: 20px;
+        }
+        .question {
+            margin-bottom: 20px;
+        }
+        .button-container {
+            text-align: center;
+        }
+        .button-container button {
+            padding: 12px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+        }
+        .button-container button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="attention-check-container">
+        <h2>Attention Check</h2>
+        <p>To proceed, please answer the question below based on the instructions you just read.</p>
+        <div class="question">
+            <p><strong>Question:</strong> How many of each fruit do you start with?</p>
+            <label>
+                <input type="radio" name="answer" value="10">
+                10
+            </label><br>
+            <label>
+                <input type="radio" name="answer" value="50">
+                50
+            </label><br>
+            <label>
+                <input type="radio" name="answer" value="100">
+                100
+            </label>
+        </div>
+        <div class="button-container">
+            <button id="submitButton" disabled onclick="checkAnswer()">Submit</button>
+        </div>
+    </div>
+
+    <script>
+        // Enable the button only when an answer is selected
+        document.querySelectorAll('input[name="answer"]').forEach((input) => {
+            input.addEventListener('change', () => {
+                document.getElementById('submitButton').disabled = false;
+            });
+        });
+
+        // Validate the answer and redirect accordingly
+        function checkAnswer() {
+            const selectedAnswer = document.querySelector('input[name="answer"]:checked').value;
+            if (selectedAnswer === "50") {
+                // Redirect to the next page in the original instructions template
+                window.location.href = "/target_items?folder_key={{ folder_key }}";
+            } else {
+                // Redirect to Prolific's completion URL
+                window.location.href = "https://app.prolific.com/submissions/complete?cc=CJAJ8YVT";
+            }
+        }
+    </script>
+</body>
+</html>

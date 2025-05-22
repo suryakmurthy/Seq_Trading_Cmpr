@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Target Items</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            position: relative;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        #countdown {
+            position: sticky;
+            bottom: 0;
+            background-color: #ffffff;
+            color: #f44336;
+            font-weight: bold;
+            font-size: 20px;
+            text-align: center;
+            padding: 10px;
+            border-top: 2px solid #ccc;
+            z-index: 1000;
+            width: 100%;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        input[type="number"] {
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        input[type="submit"] {
+            padding: 12px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .importance-question {
+            text-align: left;
+        }
+        .importance-options {
+            display: flex;
+            justify-content: space-around;
+            gap: 10px;
+        }
+        .importance-options label {
+            flex: 1;
+            text-align: center;
+        }
+        hr {
+            border: none;
+            height: 1px;
+            background-color: #ccc;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h3>Input Target Items</h3>
+        <p>Indicate how many of each fruit you want to have by the end of the negotiation. For example, if you start with 50 apples and want to end up with 70 apples after all trades, enter "70," not "20."</p>
+
+        <form action="/start_negotiation" method="post">
+            <input type="hidden" id="folder_key" name="folder_key" value="{{ folder_key }}"> <!-- Hidden folder_key -->
+
+            <label for="apples">How many total Apples would you like to have at the end of the negotiation? 🍏:</label>
+            <input type="number" id="apples" name="apples" min="0" max="100" required>
+
+            <div class="importance-question">
+                <h4>How important is it that you obtain this amount of Apples 🍏?</h4>
+                <div class="importance-options">
+                    <label><input type="radio" name="importance_apples" value="1" required> 1 - Very Unimportant</label>
+                    <label><input type="radio" name="importance_apples" value="2"> 2 - Somewhat Unimportant</label>
+                    <label><input type="radio" name="importance_apples" value="3"> 3 - Neutral</label>
+                    <label><input type="radio" name="importance_apples" value="4"> 4 - Somewhat Important</label>
+                    <label><input type="radio" name="importance_apples" value="5"> 5 - Very Important</label>
+                </div>
+            </div>
+            <hr>
+
+            <label for="bananas">How many total Bananas would you like to have at the end of the negotiation? 🍌:</label>
+            <input type="number" id="bananas" name="bananas" min="0" max="100" required>
+
+            <div class="importance-question">
+                <h4>How important is it that you obtain this amount of Bananas 🍌?</h4>
+                <div class="importance-options">
+                    <label><input type="radio" name="importance_bananas" value="1" required> 1 - Very Unimportant</label>
+                    <label><input type="radio" name="importance_bananas" value="2"> 2 - Somewhat Unimportant</label>
+                    <label><input type="radio" name="importance_bananas" value="3"> 3 - Neutral</label>
+                    <label><input type="radio" name="importance_bananas" value="4"> 4 - Somewhat Important</label>
+                    <label><input type="radio" name="importance_bananas" value="5"> 5 - Very Important</label>
+                </div>
+            </div>
+            <hr>
+
+            <label for="oranges">How many total Oranges would you like to have at the end of the negotiation? 🍊:</label>
+            <input type="number" id="oranges" name="oranges" min="0" max="100" required>
+
+            <div class="importance-question">
+                <h4>How important is it that you obtain this amount of Oranges 🍊?</h4>
+                <div class="importance-options">
+                    <label><input type="radio" name="importance_oranges" value="1" required> 1 - Very Unimportant</label>
+                    <label><input type="radio" name="importance_oranges" value="2"> 2 - Somewhat Unimportant</label>
+                    <label><input type="radio" name="importance_oranges" value="3"> 3 - Neutral</label>
+                    <label><input type="radio" name="importance_oranges" value="4"> 4 - Somewhat Important</label>
+                    <label><input type="radio" name="importance_oranges" value="5"> 5 - Very Important</label>
+                </div>
+            </div>
+            <hr>
+
+            <input type="submit" value="Start Negotiation">
+        </form>
+    </div>
+
+    <div id="countdown"></div>
+
+    <script>
+        // Timer logic remains unchanged
+        let timeLeft = 180;
+        function updateTimer() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            document.getElementById('countdown').innerText = `Time left: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+            if (timeLeft > 0) timeLeft--;
+            else {
+                clearInterval(timerInterval);
+                document.getElementById('countdown').innerText = "Time's up!";
+                endScenario();
+            }
+        }
+        function endScenario() {
+            const folderKey = document.getElementById('folder_key').value;
+            window.location.href = `/trading_ended_target_fail/${folderKey}`;
+        }
+        const timerInterval = setInterval(updateTimer, 1000);
+
+        // Unified form submission validation logic
+        document.querySelector('form').addEventListener('submit', function (event) {
+            const apples = parseInt(document.getElementById('apples').value, 10);
+            const bananas = parseInt(document.getElementById('bananas').value, 10);
+            const oranges = parseInt(document.getElementById('oranges').value, 10);
+
+            // Check if any values fall within the forbidden range
+            if ((apples > 40 && apples < 60) ||
+                (bananas > 40 && bananas < 60) ||
+                (oranges > 40 && oranges < 60)) {
+                event.preventDefault(); // Prevent form submission
+                alert("Values between 40 and 60 are not allowed. Please choose valid numbers between 0 and 100, excluding 45-55.");
+            }
+        });
+    </script>
+</body>
+</html>

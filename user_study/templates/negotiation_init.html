@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Watch Video</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            position: relative;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        h3 {
+            margin-bottom: 10px;
+        }
+        video {
+            width: 100%;
+            max-width: 750px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        #countdown {
+            position: sticky;
+            bottom: 0;
+            background-color: #ffffff;
+            color: #f44336;
+            font-weight: bold;
+            font-size: 20px;
+            text-align: center;
+            padding: 10px;
+            border-top: 2px solid #ccc;
+            z-index: 1000;
+            width: 100%;
+        }
+        button {
+            padding: 12px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h3>Watch the Video</h3>
+        <p>Please watch the video below carefully. Once the video ends, you may proceed to the next step.</p>
+
+        <video id="video" controls autoplay>
+            <source src="{{ url_for('static', filename='video/Instruction_Video.mp4') }}" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+
+        <button id="proceedButton" disabled onclick="redirectToNextPage()">Proceed</button>
+    </div>
+
+    <div id="countdown"></div> <!-- Sticky timer display -->
+
+    <script>
+        // Set the timer duration in seconds (e.g., 3 minutes = 180 seconds)
+        let timeLeft = 180;
+        let lastAllowedTime = 0; // Track the last allowed playback time
+
+        // Extract folder_key from the URL query parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const folderKey = urlParams.get('folder_key');
+
+        // Function to update the timer display
+        function updateTimer() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+
+            // Format the time as MM:SS
+            const formattedTime = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            document.getElementById('countdown').innerText = "Time left: " + formattedTime;
+
+            // Decrease time left
+            if (timeLeft > 0) {
+                timeLeft--;
+            } else {
+                clearInterval(timerInterval); // Stop the timer when it reaches 0
+                document.getElementById('countdown').innerText = "Time's up!";
+                enableProceedButton(); // Enable the proceed button
+                redirectToNextPage(); // Redirect when time runs out
+            }
+        }
+
+        // Function to enable the proceed button
+        function enableProceedButton() {
+            document.getElementById('proceedButton').disabled = false;
+        }
+
+        // Prevent fast-forwarding
+        const video = document.getElementById('video');
+        video.addEventListener('timeupdate', () => {
+            if (video.currentTime > lastAllowedTime + 1) {
+                video.currentTime = lastAllowedTime;
+            } else {
+                lastAllowedTime = video.currentTime;
+            }
+        });
+
+        // Enable the proceed button when the video ends
+        video.addEventListener('ended', () => {
+            enableProceedButton(); // Enable button when video ends
+        });
+
+        // Function to redirect when the proceed button is pressed
+        function redirectToNextPage() {
+            if (folderKey) {
+                window.location.href = `/attention_check?folder_key=${folderKey}`;
+            } else {
+                console.error("folder_key is missing from the URL.");
+            }
+        }
+
+        // Update the timer every second
+        const timerInterval = setInterval(updateTimer, 1000);
+
+        // Additional fix for enabling button at the right time:
+        window.addEventListener('load', () => {
+            // Ensure the video ends when the time runs out, and then enable the button
+            video.addEventListener('ended', () => {
+                // Ensure timer stops and the button is enabled
+                if (timeLeft <= 0) {
+                    enableProceedButton();
+                    redirectToNextPage();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
